@@ -58,8 +58,6 @@ export default function AddStudent() {
       errs.parentContact = "Must be 10 digits";
     if (form.parentContact2 && !/^[0-9]{10}$/.test(form.parentContact2))
       errs.parentContact2 = "Must be 10 digits";
-    if (!form.medium) errs.medium = "Required";
-    if (!form.grade) errs.grade = "Required";
     if (!form.classId) errs.classId = "Required";
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -248,47 +246,6 @@ export default function AddStudent() {
               Academic Details
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
-                  Medium <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={form.medium}
-                  onChange={(e) => handleChange("medium", e.target.value)}
-                  className={inputClass("medium", !form.medium)}
-                >
-                  <option value="" disabled className="text-slate-500">Select medium</option>
-                  <option value="Sinhala" className="text-slate-900 dark:text-white">Sinhala</option>
-                  <option value="Tamil" className="text-slate-900 dark:text-white">Tamil</option>
-                </select>
-                {errors.medium && (
-                  <p className="mt-1 text-xs text-red-500">{errors.medium}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
-                  Grade <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={form.grade}
-                  onChange={(e) => handleChange("grade", e.target.value)}
-                  className={inputClass("grade", !form.grade)}
-                >
-                  <option value="" disabled className="text-slate-500">Select grade</option>
-                  {Array.from({ length: 11 }, (_, i) => (i + 1).toString()).map(
-                    (g) => (
-                      <option key={g} value={g} className="text-slate-900 dark:text-white">
-                        Grade {g}
-                      </option>
-                    ),
-                  )}
-                </select>
-                {errors.grade && (
-                  <p className="mt-1 text-xs text-red-500">{errors.grade}</p>
-                )}
-              </div>
-
               <div>
                 <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
                   Assign to Class <span className="text-red-500">*</span>

@@ -28,7 +28,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center relative overflow-hidden">
+    <div className="min-h-dvh bg-slate-50 dark:bg-slate-950 flex items-center justify-center relative overflow-hidden">
       <IslamicPatternBG />
       <div className="relative z-10 w-full max-w-sm mx-4">
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg p-8">

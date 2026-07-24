@@ -449,9 +449,8 @@ async def attendance_report(
         sid = str(s["id"])
         student_att = att_map.get(sid, {})
         present = sum(1 for d in sundays_str if student_att.get(d) == "Present")
-        past_sundays = [d for d in sundays_str if datetime.strptime(d, "%Y-%m-%d").date() <= today]
-        valid_total = len(past_sundays)
-        pct = round((present / valid_total) * 100, 1) if valid_total > 0 else 0.0
+        marked_total = sum(1 for d in sundays_str if d in student_att)
+        pct = round((present / marked_total) * 100, 1) if marked_total > 0 else 0.0
 
         students_data.append({
             "student_id": sid,

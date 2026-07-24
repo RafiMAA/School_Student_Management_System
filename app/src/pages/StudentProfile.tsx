@@ -104,6 +104,7 @@ export default function StudentProfile() {
             </div>
 
             <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4 text-left">
+              {student.status !== 'Alumni' && (
               <div className="flex items-center gap-3 text-sm">
                 <BookOpen className="w-4 h-4 text-slate-400 shrink-0" />
                 <div>
@@ -111,6 +112,7 @@ export default function StudentProfile() {
                   <p className="font-medium text-slate-900 dark:text-white">{student.class_name || 'Unassigned'}</p>
                 </div>
               </div>
+              )}
               <div className="flex items-center gap-3 text-sm">
                 <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
                 <div>
@@ -173,21 +175,21 @@ export default function StudentProfile() {
         <div className="lg:col-span-2 space-y-6">
           {student.status !== 'Alumni' && (
             <>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm text-center">
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Sundays</p>
-                  <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{history.length}</p>
+              <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 sm:p-4 shadow-sm text-center">
+                  <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400">Total Sundays</p>
+                  <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">{history.length}</p>
                 </div>
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm text-center">
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Present</p>
-                  <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{presentCount}</p>
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 sm:p-4 shadow-sm text-center">
+                  <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400">Present</p>
+                  <p className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{presentCount}</p>
                 </div>
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm text-center relative overflow-hidden">
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 sm:p-4 shadow-sm text-center relative overflow-hidden">
                   <div className="absolute inset-x-0 bottom-0 h-1 bg-slate-100 dark:bg-slate-800">
                     <div className="h-full bg-emerald-500" style={{ width: `${attendanceRate}%` }} />
                   </div>
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Attendance Rate</p>
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">{attendanceRate}%</p>
+                  <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400">Attendance Rate</p>
+                  <p className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">{attendanceRate}%</p>
                 </div>
               </div>
 
