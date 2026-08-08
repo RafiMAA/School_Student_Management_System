@@ -164,7 +164,7 @@ async def dashboard_bootstrap(
         user_profile = UserProfile(
             id=str(meta_row["t_id"]),
             full_name=meta_row["full_name"],
-            username=meta_row["username"],
+            email=user.get("email", ""),
             contact=meta_row["contact"],
             address=meta_row["address"],
             role=meta_row["role"],
@@ -174,7 +174,7 @@ async def dashboard_bootstrap(
         user_profile = UserProfile(
             id=user["id"],
             full_name=user["full_name"],
-            username="",
+            email=user.get("email", ""),
             contact="",
             address="",
             role=user["role"],

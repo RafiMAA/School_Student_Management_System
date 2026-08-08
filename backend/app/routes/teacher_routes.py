@@ -13,7 +13,7 @@ router = APIRouter()
 def _row_to_response(r, assigned_class=None, assigned_class_ids=None) -> TeacherResponse:
     return TeacherResponse(
         id=str(r["id"]), full_name=r["full_name"], contact=r["contact"], address=r.get("address"),
-        username=r["username"], role=r["role"],
+        email=r["username"], role=r["role"],
         assigned_class=assigned_class,
         assigned_class_ids=assigned_class_ids,
         created_at=r["created_at"],
