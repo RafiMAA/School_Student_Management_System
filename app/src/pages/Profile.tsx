@@ -11,7 +11,8 @@ export default function Profile() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     full_name: '',
-    username: '',
+    full_name: '',
+    email: '',
     contact: '',
     address: ''
   });
@@ -23,7 +24,7 @@ export default function Profile() {
       setFormData(prev => ({
         ...prev,
         full_name: data.full_name || '',
-        username: data.username || '',
+        email: data.email || '',
         contact: data.contact || '',
         address: data.address || ''
       }));
@@ -44,7 +45,6 @@ export default function Profile() {
     // Only send password if it's not empty
     const payload: any = {
       full_name: formData.full_name,
-      username: formData.username,
       contact: formData.contact,
       address: formData.address,
     };
@@ -55,7 +55,7 @@ export default function Profile() {
       
       // Update local storage so the next reload has fresh data instantly
       if (user) {
-        const newLocalUser = { ...user, full_name: updatedUser.full_name, username: updatedUser.username };
+        const newLocalUser = { ...user, full_name: updatedUser.full_name, email: updatedUser.email };
         localStorage.setItem('ahadiya_user', JSON.stringify(newLocalUser));
       }
       
@@ -120,18 +120,17 @@ export default function Profile() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Username</label>
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Email Address</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <AtSign className="w-4 h-4 text-slate-400" />
                 </div>
                 <input
-                  type="text"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleChange}
-                  required
-                  className="w-full pl-9 pr-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  readOnly
+                  className="w-full pl-9 pr-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 text-sm outline-none cursor-not-allowed"
                 />
               </div>
             </div>
@@ -174,7 +173,7 @@ export default function Profile() {
           <div className="pt-4 flex justify-end">
             <button
               type="submit"
-              disabled={loading || !formData.full_name || !formData.username || !formData.contact}
+              disabled={loading || !formData.full_name || !formData.contact}
               className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white font-medium rounded-lg transition-colors"
             >
               <Save className="w-4 h-4" />

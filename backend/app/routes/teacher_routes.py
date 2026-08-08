@@ -75,6 +75,15 @@ async def get_teacher(
     return _row_to_response(row, row.get("assigned_class_name"), row.get("assigned_class_ids"))
 
 
+from supabase import create_client, Client
+from app.config import get_settings
+
+def get_supabase_admin() -> Client:
+    settings = get_settings()
+    if not settings.supabase_url or not settings.supabase_service_role_key:
+        raise ValueError("Supabase URL and Service Role Key must be configured")
+    return create_client(settings.supabase_url, settings.supabase_service_role_key)
+
 @router.post("", response_model=TeacherResponse, status_code=201)
 async def create_teacher(
     body: TeacherCreate,
@@ -84,28 +93,48 @@ async def create_teacher(
     if body.role == "Principal":
         raise HTTPException(status_code=403, detail="Cannot create a Principal account")
 
-    existing = await db.fetchrow("SELECT id FROM teachers WHERE username = $1", body.username)
+    existing = await db.fetchrow("SELECT id FROM teachers WHERE username = $1", body.email)
     if existing:
-        raise HTTPException(status_code=409, detail="Username already taken")
+        raise HTTPException(status_code=409, detail="Email already taken")
 
-    # Note: Authentication is now handled by Supabase Auth.
-    # The password field in TeacherCreate is kept for backward compatibility
-    # but the actual auth account must be created in Supabase Dashboard first.
-    # We still insert into the teachers table for profile data.
-    row = await db.fetchrow(
-        """INSERT INTO teachers (full_name, contact, address, username, password_hash, role)
-           VALUES ($1, $2, $3, $4, $5, $6::teacher_role) RETURNING *""",
-        body.full_name, body.contact, body.address, body.username, 'supabase-managed', body.role,
-    )
-    if body.assigned_classes:
-        await db.execute(
-            "UPDATE classes SET teacher_id = $1 WHERE id = ANY($2::uuid[]) AND academic_year_id = (SELECT id FROM academic_years WHERE is_current = TRUE)",
-            row["id"], body.assigned_classes
-        )
-    await db.execute(
-        "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
-        "TEACHER_ADDED", {"name": body.full_name, "username": body.username}, user.get("teacher_id"),
-    )
+    try:
+        supabase = get_supabase_admin()
+        auth_response = supabase.auth.admin.create_user({
+            "email": body.email,
+            "password": body.password,
+            "email_confirm": True,
+            "user_metadata": {"full_name": body.full_name}
+        })
+        auth_user_id = auth_response.user.id
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to create auth user: {str(e)}")
+
+    async with db.acquire() as conn:
+        async with conn.transaction():
+            # Insert into teachers
+            row = await conn.fetchrow(
+                """INSERT INTO teachers (full_name, contact, address, username, password_hash, role)
+                   VALUES ($1, $2, $3, $4, $5, $6::teacher_role) RETURNING *""",
+                body.full_name, body.contact, body.address, body.email, 'supabase-managed', body.role,
+            )
+            
+            # Insert into admin_users
+            await conn.execute(
+                """INSERT INTO admin_users (id, full_name, role, teacher_id, is_active)
+                   VALUES ($1, $2, $3, $4, TRUE)""",
+                auth_user_id, body.full_name, body.role, row["id"]
+            )
+
+            if body.assigned_classes:
+                await conn.execute(
+                    "UPDATE classes SET teacher_id = $1 WHERE id = ANY($2::uuid[]) AND academic_year_id = (SELECT id FROM academic_years WHERE is_current = TRUE)",
+                    row["id"], body.assigned_classes
+                )
+            await conn.execute(
+                "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
+                "TEACHER_ADDED", {"name": body.full_name, "email": body.email}, user.get("teacher_id"),
+            )
+
     cache_invalidate(TOTAL_TEACHERS)
     return _row_to_response(row)
 
@@ -220,13 +249,31 @@ async def delete_teacher(
         if has_audit:
             raise HTTPException(status_code=400, detail="Cannot delete teacher: Has performed system actions during the current academic year.")
 
-    result = await db.execute("DELETE FROM teachers WHERE id = $1", teacher_id)
-    if result == "DELETE 0":
-        raise HTTPException(status_code=404, detail="Teacher not found")
-    await db.execute(
-        "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
-        "TEACHER_DELETED", {"teacher_id": teacher_id}, user.get("teacher_id"),
-    )
+    admin_user = await db.fetchrow("SELECT id FROM admin_users WHERE teacher_id = $1", teacher_id)
+
+    async with db.acquire() as conn:
+        async with conn.transaction():
+            if admin_user:
+                # Delete admin_users first due to ON DELETE RESTRICT from auth.users
+                await conn.execute("DELETE FROM admin_users WHERE teacher_id = $1", teacher_id)
+
+            result = await conn.execute("DELETE FROM teachers WHERE id = $1", teacher_id)
+            if result == "DELETE 0":
+                raise HTTPException(status_code=404, detail="Teacher not found")
+            
+            await conn.execute(
+                "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
+                "TEACHER_DELETED", {"teacher_id": teacher_id}, user.get("teacher_id"),
+            )
+
+    if admin_user:
+        try:
+            supabase = get_supabase_admin()
+            supabase.auth.admin.delete_user(str(admin_user["id"]))
+        except Exception as e:
+            # We already deleted the DB rows, so log the auth error but don't fail the request completely
+            print(f"Warning: Failed to delete auth user {admin_user['id']}: {str(e)}")
+
     cache_invalidate(TOTAL_TEACHERS)
     return {"message": "Teacher deleted successfully"}
 
@@ -237,11 +284,18 @@ async def reset_password(
     db: asyncpg.Pool = Depends(get_db),
     user: dict = Depends(require_admin),
 ):
-    # Password resets are now handled through Supabase Auth.
-    # This endpoint is kept for audit logging purposes.
-    # The frontend should call supabase.auth.admin.updateUserById() via an Edge Function
-    # or handle password resets through the Supabase Dashboard.
-    raise HTTPException(
-        status_code=400,
-        detail="Password resets are now managed through Supabase Auth. Please use the Supabase Dashboard or the password reset flow.",
+    admin_user = await db.fetchrow("SELECT id FROM admin_users WHERE teacher_id = $1", teacher_id)
+    if not admin_user:
+        raise HTTPException(status_code=404, detail="Cannot reset password: Teacher does not have a linked login account.")
+
+    try:
+        supabase = get_supabase_admin()
+        supabase.auth.admin.update_user_by_id(str(admin_user["id"]), {"password": body.new_password})
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to reset password: {str(e)}")
+
+    await db.execute(
+        "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
+        "PASSWORD_RESET", {"teacher_id": teacher_id}, user.get("teacher_id"),
     )
+    return {"message": "Password reset successfully"}

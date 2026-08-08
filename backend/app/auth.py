@@ -125,6 +125,7 @@ async def get_current_user(
         "id": str(row["id"]),
         "role": row["role"],
         "full_name": row["full_name"],
+        "email": payload.get("email", ""),
         "teacher_id": str(row["teacher_id"]) if row["teacher_id"] else None,
     }
 

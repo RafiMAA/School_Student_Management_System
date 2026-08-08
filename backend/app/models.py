@@ -23,7 +23,7 @@ class LoginResponse(BaseModel):
 class UserProfile(BaseModel):
     id: str
     full_name: str
-    username: str
+    email: str
     contact: str
     address: Optional[str] = None
     role: str
@@ -33,7 +33,7 @@ class ProfileUpdateRequest(BaseModel):
     full_name: Optional[str] = None
     contact: Optional[str] = None
     address: Optional[str] = None
-    username: Optional[str] = None
+    email: Optional[str] = None
     password: Optional[str] = None
 
 
@@ -241,7 +241,7 @@ class TeacherCreate(BaseModel):
     full_name: str
     contact: str
     address: Optional[str] = None
-    username: str
+    email: str
     password: str
     role: Literal["Principal", "Admin", "Teacher", "Super Admin"] = "Teacher"
     assigned_classes: Optional[list[str]] = None
@@ -258,7 +258,7 @@ class TeacherResponse(BaseModel):
     full_name: str
     contact: str
     address: Optional[str] = None
-    username: str
+    email: str
     role: str
     assigned_class: Optional[str] = None
     assigned_class_ids: Optional[list[str]] = None

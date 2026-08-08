@@ -22,7 +22,7 @@ export default function Teachers() {
     fullName: '',
     contact: '',
     address: '',
-    username: '',
+    email: '',
     password: '',
     role: 'Teacher' as 'Principal' | 'Admin' | 'Teacher' | 'Super Admin',
     assignedClassId: ''
@@ -48,7 +48,7 @@ export default function Teachers() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.fullName || !form.username || !form.password) {
+    if (!form.fullName || !form.email || !form.password) {
       addToast('error', 'Please fill required fields');
       return;
     }
@@ -58,14 +58,14 @@ export default function Teachers() {
         full_name: form.fullName,
         contact: form.contact,
         address: form.address,
-        username: form.username,
+        email: form.email,
         password: form.password,
         role: form.role,
         assigned_classes: form.assignedClassId ? [form.assignedClassId] : []
       });
       addToast('success', 'Teacher added successfully');
       setShowAdd(false);
-      setForm({ fullName: '', contact: '', address: '', username: '', password: '', role: 'Teacher', assignedClassId: '' });
+      setForm({ fullName: '', contact: '', address: '', email: '', password: '', role: 'Teacher', assignedClassId: '' });
       fetchTeachers();
     } catch (err: any) {
       addToast('error', err?.data?.detail || 'Failed to add teacher');
@@ -131,8 +131,8 @@ export default function Teachers() {
               <input type="text" value={form.fullName} onChange={e => setForm({...form, fullName: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700" required />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">Username *</label>
-              <input type="text" value={form.username} onChange={e => setForm({...form, username: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700" required />
+              <label className="block text-xs font-medium text-slate-500 mb-1">Email Address *</label>
+              <input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700" required />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Password *</label>

@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     # when local HS256 verification fails (Supabase migrated to ES256).
     supabase_url: str = ""
     supabase_anon_key: str = ""
+    supabase_service_role_key: str = ""
 
     # PDF
     pdf_school_name: str = "Ahadiya School"

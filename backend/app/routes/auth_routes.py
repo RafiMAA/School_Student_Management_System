@@ -38,7 +38,7 @@ async def get_me(
     if teacher_id:
         row = await db.fetchrow(
             """
-            SELECT t.id, t.full_name, t.username, t.contact, t.address, t.role,
+            SELECT t.id, t.full_name, t.contact, t.address, t.role,
                    ('Grade ' || c.grade || ' ' || c.medium::TEXT || ' ' || c.gender_type::TEXT) AS assigned_class
             FROM teachers t
             LEFT JOIN classes c ON c.teacher_id = t.id AND c.academic_year_id = $2
@@ -50,7 +50,7 @@ async def get_me(
             return UserProfile(
                 id=str(row["id"]),
                 full_name=row["full_name"],
-                username=row["username"],
+                email=user.get("email", ""),
                 contact=row["contact"],
                 address=row["address"],
                 role=row["role"],
@@ -61,7 +61,7 @@ async def get_me(
     return UserProfile(
         id=user["id"],
         full_name=admin_row["full_name"],
-        username="",
+        email=user.get("email", ""),
         contact="",
         address="",
         role=admin_row["role"],
@@ -110,14 +110,8 @@ async def update_profile(
             updates.append(f"address = ${idx}")
             values.append(body.address)
             idx += 1
-        if body.username is not None:
-            # Check uniqueness
-            existing = await db.fetchval("SELECT id FROM teachers WHERE username = $1 AND id != $2", body.username, teacher_id)
-            if existing:
-                raise HTTPException(status_code=400, detail="Username already taken")
-            updates.append(f"username = ${idx}")
-            values.append(body.username)
-            idx += 1
+        if body.email is not None:
+            raise HTTPException(status_code=400, detail="Email cannot be changed from the profile page.")
 
         if updates:
             values.append(teacher_id)
@@ -128,7 +122,7 @@ async def update_profile(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
         "PROFILE_UPDATED",
         {"updates": [k for k, v in body.model_dump().items() if v is not None]},
-        user["id"]
+        user.get("teacher_id")
     )
 
     # Return the updated profile via get_me

@@ -9,10 +9,10 @@ export interface AppUser {
 }
 
 export type Role = 'Principal' | 'Admin' | 'Teacher' | 'Super Admin';
-export interface User { id: string; full_name: string; username: string; role: Role }
+export interface User { id: string; full_name: string; email: string; role: Role }
 
 export interface Student { id: string; registration_number: string; full_name: string; gender: 'Male' | 'Female'; date_of_birth: string; parent_name: string; parent_name_2?: string; parent_contact: string; parent_contact_2?: string; own_contact?: string; medium: 'Sinhala' | 'Tamil'; current_grade: string; current_class_id?: string; class_name?: string; joined_date: string; status: 'Active' | 'Alumni' | 'Inactive'; graduation_year?: string }
-export interface Teacher { id: string; full_name: string; contact: string; username: string; assigned_class?: string; assigned_class_ids?: string[]; role: Role; address?: string; created_at?: string }
+export interface Teacher { id: string; full_name: string; contact: string; email: string; assigned_class?: string; assigned_class_ids?: string[]; role: Role; address?: string; created_at?: string }
 export interface SchoolClass { id: string; grade: string; medium: 'Sinhala' | 'Tamil'; gender_type: 'Mixed' | 'Boys' | 'Girls'; academic_year_id: string; teacher_id?: string; is_active: boolean; name?: string; total_students?: number; teacher_name?: string }
 export interface PromotionRule { id: string; from_class_id: string; male_to_class_id: string; female_to_class_id: string; academic_year_id: string; from_class_name?: string; male_to_class_name?: string; female_to_class_name?: string }
 export interface PromotionRow { student_id: string; student_name: string; gender: string; current_class: string; target_class: string | null; action: 'PROMOTE' | 'GRADUATE' | 'NONE' }

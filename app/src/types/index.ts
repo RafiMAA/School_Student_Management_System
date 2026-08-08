@@ -22,7 +22,7 @@ export interface Teacher {
   id: string;
   full_name: string;
   contact: string;
-  username: string;
+  email: string;
   assigned_class?: string;
   assigned_class_ids?: string[];
   role: 'Principal' | 'Admin' | 'Teacher' | 'Super Admin';
@@ -98,7 +98,7 @@ export interface AppUser {
 export interface User {
   id: string;
   full_name: string;
-  username: string;
+  email: string;
   role: 'Principal' | 'Admin' | 'Teacher' | 'Super Admin';
 }
 

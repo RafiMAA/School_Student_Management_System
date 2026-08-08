@@ -132,7 +132,7 @@ export default function TeacherProfile() {
 
   const isViewingUserSuperAdmin = user?.role === 'Super Admin';
   const hasAdminAccess = ['Principal', 'Admin', 'Super Admin'].includes(user?.role || '');
-  const isProtectedUser = teacher.role === 'Principal' || teacher.username === 'rafimaa.23';
+  const isProtectedUser = teacher.role === 'Principal' || teacher.email === 'rafimaa.23@example.com';
   const canModify = hasAdminAccess && 
                     !isProtectedUser && 
                     (teacher.role !== 'Super Admin' || isViewingUserSuperAdmin);
@@ -190,8 +190,8 @@ export default function TeacherProfile() {
             </h3>
             <div className="space-y-4">
               <div>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Username</p>
-                <p className="font-medium text-slate-900 dark:text-white font-mono">{teacher.username}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Email Address</p>
+                <p className="font-medium text-slate-900 dark:text-white font-mono">{teacher.email}</p>
               </div>
               <div>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Contact Number</p>
