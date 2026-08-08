@@ -44,13 +44,36 @@ export function AttendanceHistoryScreen({ route, navigation }: any) {
         <Pressable onPress={handleNextMonth} style={{ padding: 10 }}><Ionicons name="chevron-forward" size={20} color={colors.text} /></Pressable>
       </View>
     )}
-    <Field label="Search students" placeholder="Student name" value={search} onChangeText={setSearch} /></Card>{report.isLoading ? <LoadingView /> : !rows.length ? <EmptyState icon="calendar-outline" title="No attendance records" /> : <Card>{rows.map(st => { const markedDates = Object.keys(st.attendance || {}).length; const presentCount = st.present_count; const percentage = markedDates ? Math.round((presentCount / markedDates) * 1000) / 10 : 0; return <Pressable key={st.student_id} onPress={() => navigation.navigate('StudentsTab', { screen: 'StudentDetail', params: { id: st.student_id } })} style={[s.reportRow, { borderBottomColor: colors.border }]}><Avatar name={st.student_name} size={40} /><View style={{ flex: 1 }}><Text style={{ color: colors.text, fontWeight: '700' }}>{st.student_name}</Text><Text style={{ color: colors.muted, fontSize: 11 }}>{presentCount} present</Text>
+    <Field label="Search students" placeholder="Student name" value={search} onChangeText={setSearch} /></Card>{report.isLoading ? <LoadingView /> : !rows.length ? <EmptyState icon="calendar-outline" title="No attendance records" /> : <Card>{rows.map(st => { const markedDates = Object.keys(st.attendance || {}).length; const presentCount = st.present_count; const percentage = markedDates ? Math.round((presentCount / markedDates) * 1000) / 10 : 0; const sundays = report.data?.sundays || []; return <Pressable key={st.student_id} onPress={() => navigation.navigate('StudentsTab', { screen: 'StudentDetail', params: { id: st.student_id } })} style={[s.reportRow, { borderBottomColor: colors.border }]}><Avatar name={st.student_name} size={40} /><View style={{ flex: 1 }}><Text style={{ color: colors.text, fontWeight: '700' }}>{st.student_name}</Text><Text style={{ color: colors.muted, fontSize: 11 }}>{presentCount} present</Text>
     
-    <View style={s.reportSummary}>
-      <Text style={{ color: colors.muted, fontSize: 12 }}>
-        {presentCount} present out of {markedDates} attendance dates
-      </Text>
-    </View>
+    {mode === 'monthly' ? (
+      <View style={{ flexDirection: 'row', marginTop: 8, gap: 6 }}>
+        {sundays.map(dateStr => {
+          const dayStr = dateStr.slice(8, 10);
+          const status = st.attendance[dateStr];
+          const isPresent = status === 'Present';
+          const isAbsent = status === 'Absent';
+          const bgColor = isPresent ? `${colors.primary}20` : isAbsent ? `${colors.danger}20` : colors.surfaceAlt;
+          const textColor = isPresent ? colors.primary : isAbsent ? colors.danger : colors.muted;
+          return (
+            <View key={dateStr} style={{ alignItems: 'center', width: 30 }}>
+              <Text style={{ fontSize: 10, color: colors.muted, marginBottom: 4 }}>{dayStr}</Text>
+              <View style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: bgColor, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 12, fontWeight: '800', color: textColor }}>
+                  {isPresent ? 'P' : isAbsent ? 'A' : '-'}
+                </Text>
+              </View>
+            </View>
+          );
+        })}
+      </View>
+    ) : (
+      <View style={s.reportSummary}>
+        <Text style={{ color: colors.muted, fontSize: 12 }}>
+          {presentCount} present out of {markedDates} attendance dates
+        </Text>
+      </View>
+    )}
 
     </View><Pill text={`${percentage}%`} tone={percentage >= 80 ? 'green' : percentage >= 60 ? 'amber' : 'red'} /></Pressable>; })}</Card>}</Screen>;
 }
