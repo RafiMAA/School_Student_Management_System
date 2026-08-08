@@ -104,7 +104,7 @@ async def create_teacher(
         )
     await db.execute(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
-        "TEACHER_ADDED", {"name": body.full_name, "username": body.username}, user["id"],
+        "TEACHER_ADDED", {"name": body.full_name, "username": body.username}, user.get("teacher_id"),
     )
     cache_invalidate(TOTAL_TEACHERS)
     return _row_to_response(row)
@@ -169,7 +169,7 @@ async def update_teacher(
 
     await db.execute(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
-        "TEACHER_UPDATED", audit_details, user["id"],
+        "TEACHER_UPDATED", audit_details, user.get("teacher_id"),
     )
     return _row_to_response(row)
 
@@ -225,7 +225,7 @@ async def delete_teacher(
         raise HTTPException(status_code=404, detail="Teacher not found")
     await db.execute(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
-        "TEACHER_DELETED", {"teacher_id": teacher_id}, user["id"],
+        "TEACHER_DELETED", {"teacher_id": teacher_id}, user.get("teacher_id"),
     )
     cache_invalidate(TOTAL_TEACHERS)
     return {"message": "Teacher deleted successfully"}

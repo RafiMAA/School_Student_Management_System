@@ -105,7 +105,7 @@ async def get_current_user(
 
     # Look up admin profile — this ensures the user is an authorized admin
     row = await db.fetchrow(
-        "SELECT id, full_name, role, is_active FROM admin_users WHERE id = $1",
+        "SELECT id, full_name, role, is_active, teacher_id FROM admin_users WHERE id = $1",
         user_id,
     )
 
@@ -125,6 +125,7 @@ async def get_current_user(
         "id": str(row["id"]),
         "role": row["role"],
         "full_name": row["full_name"],
+        "teacher_id": str(row["teacher_id"]) if row["teacher_id"] else None,
     }
 
 

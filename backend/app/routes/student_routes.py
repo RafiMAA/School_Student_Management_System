@@ -128,7 +128,7 @@ async def create_student(
 
     await db.execute(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
-        "STUDENT_ADDED", {"name": body.full_name, "reg": reg_number}, user["id"],
+        "STUDENT_ADDED", {"name": body.full_name, "reg": reg_number}, user.get("teacher_id"),
     )
 
     cache_invalidate(TOTAL_STUDENTS)
@@ -164,7 +164,7 @@ async def create_alumni(
 
     await db.execute(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
-        "ALUMNI_ADDED", {"name": body.full_name, "reg": reg_number}, user["id"],
+        "ALUMNI_ADDED", {"name": body.full_name, "reg": reg_number}, user.get("teacher_id"),
     )
 
     cache_invalidate(TOTAL_STUDENTS)
@@ -222,7 +222,7 @@ async def update_student(
 
     await db.execute(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
-        "STUDENT_UPDATED", {"student_id": student_id}, user["id"],
+        "STUDENT_UPDATED", {"student_id": student_id}, user.get("teacher_id"),
     )
     return _row_to_response(row)
 
@@ -241,7 +241,7 @@ async def delete_student(
 
     await db.execute(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
-        "STUDENT_DELETED", {"student_id": student_id}, user["id"],
+        "STUDENT_DELETED", {"student_id": student_id}, user.get("teacher_id"),
     )
     cache_invalidate(TOTAL_STUDENTS)
     return {"message": "Student set to inactive"}
@@ -266,7 +266,7 @@ async def transfer_student(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
         "STUDENT_TRANSFERRED",
         {"student_id": student_id, "target_class": body.target_class_id},
-        user["id"],
+        user.get("teacher_id"),
     )
     return {"message": "Student transferred"}
 
@@ -286,7 +286,7 @@ async def graduate_student(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
         "STUDENT_GRADUATED",
         {"student_id": student_id, "graduation_year": body.graduation_year},
-        user["id"],
+        user.get("teacher_id"),
     )
     cache_invalidate(TOTAL_STUDENTS)
     return {"message": "Student graduated to alumni"}
@@ -321,7 +321,7 @@ async def list_achievements(
     for r in rows:
         can_delete = (
             str(r["academic_year_id"]) == str(current_year_id)
-            and (str(r["created_by"]) == user["id"] or user["role"] in ("Principal", "Admin"))
+            and (str(r["created_by"]) == user.get("teacher_id") or user["role"] in ("Principal", "Admin"))
         )
         results.append(AchievementResponse(
             id=str(r["id"]),
@@ -362,10 +362,10 @@ async def add_achievement(
     row = await db.fetchrow(
         """INSERT INTO student_achievements (student_id, academic_year_id, grade, achievement_text, created_by)
            VALUES ($1, $2, $3, $4, $5) RETURNING *""",
-        student_id, str(year["id"]), student["current_grade"], body.achievement_text.strip(), user["id"],
+        student_id, str(year["id"]), student["current_grade"], body.achievement_text.strip(), user.get("teacher_id"),
     )
 
-    teacher_name = await db.fetchval("SELECT full_name FROM teachers WHERE id = $1", user["id"])
+    teacher_name = user["full_name"]
 
     return AchievementResponse(
         id=str(row["id"]),
@@ -403,7 +403,7 @@ async def delete_achievement(
         raise HTTPException(status_code=403, detail="Cannot delete achievements from past academic years")
 
     # Check permission: author or admin
-    if str(row["created_by"]) != user["id"] and user["role"] not in ("Principal", "Admin"):
+    if str(row["created_by"]) != user.get("teacher_id") and user["role"] not in ("Principal", "Admin"):
         raise HTTPException(status_code=403, detail="You can only delete your own achievements")
 
     await db.execute("DELETE FROM student_achievements WHERE id = $1", achievement_id)

@@ -299,7 +299,7 @@ async def execute_promotion(
                         await conn.execute(
                             """INSERT INTO promotion_history (student_id, from_class_id, to_class_id, academic_year_id, promoted_by)
                                VALUES ($1, $2, $2, $3, $4)""",
-                            s["id"], s["current_class_id"], year_id, user["id"],
+                            s["id"], s["current_class_id"], year_id, user.get("teacher_id"),
                         )
                         graduated += 1
                     else:
@@ -355,7 +355,7 @@ async def execute_promotion(
                             await conn.execute(
                                 """INSERT INTO promotion_history (student_id, from_class_id, to_class_id, academic_year_id, promoted_by)
                                    VALUES ($1, $2, $3, $4, $5)""",
-                                s["id"], s["current_class_id"], final_target_id, year_id, user["id"],
+                                s["id"], s["current_class_id"], final_target_id, year_id, user.get("teacher_id"),
                             )
                             promoted += 1
                 except Exception as e:
@@ -371,7 +371,7 @@ async def execute_promotion(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
         "PROMOTION_EXECUTED",
         {"academic_year_id": str(new_year_id), "promoted": promoted, "graduated": graduated},
-        user["id"],
+        user.get("teacher_id"),
     )
 
     return PromotionResult(promoted=promoted, graduated=graduated, errors=errors)
@@ -440,7 +440,7 @@ async def undo_promotion(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
         "PROMOTION_UNDO",
         {"reverted": reverted, "deleted_year_id": str(current_year_id), "restored_year_id": str(old_year_id)},
-        user["id"],
+        user.get("teacher_id"),
     )
 
     return {"message": f"Successfully undid promotion. Reverted {reverted} students."}

@@ -47,7 +47,7 @@ async def create_academic_year(
     )
     await db.execute(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
-        "ACADEMIC_YEAR_CREATED", {"year_label": body.year_label}, user["id"],
+        "ACADEMIC_YEAR_CREATED", {"year_label": body.year_label}, user.get("teacher_id"),
     )
     return _row_to_response(row)
 
@@ -82,7 +82,7 @@ async def update_current_year_label(
     
     await db.execute(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
-        "ACADEMIC_YEAR_UPDATED", {"new_label": body.year_label}, user["id"],
+        "ACADEMIC_YEAR_UPDATED", {"new_label": body.year_label}, user.get("teacher_id"),
     )
     cache_invalidate(CURRENT_YEAR, CURRENT_YEAR_ID)
     return _row_to_response(row)
@@ -105,7 +105,7 @@ async def set_current_year(
                 raise HTTPException(status_code=404, detail="Academic year not found")
     await db.execute(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
-        "ACADEMIC_YEAR_SET_CURRENT", {"year_id": year_id}, user["id"],
+        "ACADEMIC_YEAR_SET_CURRENT", {"year_id": year_id}, user.get("teacher_id"),
     )
     # Invalidate all caches that depend on the current academic year
     from app.cache import cache_invalidate, cache_invalidate_prefix, CURRENT_YEAR, CURRENT_YEAR_ID, TOTAL_CLASSES, USER_PREFIX
@@ -129,6 +129,6 @@ async def close_year(
         raise HTTPException(status_code=404, detail="Academic year not found")
     await db.execute(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
-        "ACADEMIC_YEAR_CLOSED", {"year_id": year_id}, user["id"],
+        "ACADEMIC_YEAR_CLOSED", {"year_id": year_id}, user.get("teacher_id"),
     )
     return _row_to_response(row)

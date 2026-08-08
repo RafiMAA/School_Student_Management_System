@@ -25,27 +25,47 @@ async def get_me(
     from app.cache import get_current_year_id
     year_id = await get_current_year_id(db)
 
-    row = await db.fetchrow(
-        """
-        SELECT t.id, t.full_name, t.username, t.contact, t.address, t.role,
-               ('Grade ' || c.grade || ' ' || c.medium::TEXT || ' ' || c.gender_type::TEXT) AS assigned_class
-        FROM teachers t
-        LEFT JOIN classes c ON c.teacher_id = t.id AND c.academic_year_id = $2
-        WHERE t.id = $1
-        """,
-        user["id"], year_id,
+    # Resolve teacher_id from admin_users
+    admin_row = await db.fetchrow(
+        "SELECT teacher_id, full_name, role FROM admin_users WHERE id = $1",
+        user["id"]
     )
-    if not row:
+    if not admin_row:
         raise HTTPException(status_code=404, detail="User profile not found")
 
+    teacher_id = admin_row["teacher_id"]
+
+    if teacher_id:
+        row = await db.fetchrow(
+            """
+            SELECT t.id, t.full_name, t.username, t.contact, t.address, t.role,
+                   ('Grade ' || c.grade || ' ' || c.medium::TEXT || ' ' || c.gender_type::TEXT) AS assigned_class
+            FROM teachers t
+            LEFT JOIN classes c ON c.teacher_id = t.id AND c.academic_year_id = $2
+            WHERE t.id = $1
+            """,
+            teacher_id, year_id,
+        )
+        if row:
+            return UserProfile(
+                id=str(row["id"]),
+                full_name=row["full_name"],
+                username=row["username"],
+                contact=row["contact"],
+                address=row["address"],
+                role=row["role"],
+                assigned_class=row["assigned_class"],
+            )
+
+    # Fallback for Super Admins / Admins without a linked teacher profile
     return UserProfile(
-        id=str(row["id"]),
-        full_name=row["full_name"],
-        username=row["username"],
-        contact=row["contact"],
-        address=row["address"],
-        role=row["role"],
-        assigned_class=row["assigned_class"],
+        id=user["id"],
+        full_name=admin_row["full_name"],
+        username="",
+        contact="",
+        address="",
+        role=admin_row["role"],
+        assigned_class=None,
     )
 
 
@@ -56,78 +76,60 @@ async def update_profile(
     db: asyncpg.Pool = Depends(get_db),
 ):
     """Update the current user's profile. Password changes go through Supabase Auth directly."""
-    updates = []
-    values = []
-    idx = 1
+    admin_row = await db.fetchrow(
+        "SELECT teacher_id FROM admin_users WHERE id = $1",
+        user["id"]
+    )
+    if not admin_row:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    teacher_id = admin_row["teacher_id"]
 
+    # 1. Update admin_users if full_name is provided
     if body.full_name is not None:
-        updates.append(f"full_name = ${idx}")
-        values.append(body.full_name)
-        idx += 1
-    if body.contact is not None:
-        updates.append(f"contact = ${idx}")
-        values.append(body.contact)
-        idx += 1
-    if body.address is not None:
-        updates.append(f"address = ${idx}")
-        values.append(body.address)
-        idx += 1
-    if body.username is not None:
-        # Check uniqueness
-        existing = await db.fetchval("SELECT id FROM teachers WHERE username = $1 AND id != $2", body.username, user["id"])
-        if existing:
-            raise HTTPException(status_code=400, detail="Username already taken")
-        updates.append(f"username = ${idx}")
-        values.append(body.username)
-        idx += 1
-
-    # Note: password changes are now handled by supabase.auth.updateUser()
-    # on the frontend. We no longer accept password updates via this endpoint.
-
-    if not updates:
-        # No changes — return current profile
-        from app.cache import get_current_year_id
-        year_id = await get_current_year_id(db)
-        row = await db.fetchrow(
-            """SELECT t.id, t.full_name, t.username, t.contact, t.address, t.role,
-                      ('Grade ' || c.grade || ' ' || c.medium::TEXT || ' ' || c.gender_type::TEXT) AS assigned_class
-               FROM teachers t
-               LEFT JOIN classes c ON c.teacher_id = t.id AND c.academic_year_id = $2
-               WHERE t.id = $1""",
-            user["id"], year_id,
-        )
-        return UserProfile(
-            id=str(row["id"]), full_name=row["full_name"], username=row["username"],
-            contact=row["contact"], address=row["address"], role=row["role"],
-            assigned_class=row["assigned_class"],
+        await db.execute(
+            "UPDATE admin_users SET full_name = $1 WHERE id = $2",
+            body.full_name, user["id"]
         )
 
-    values.append(user["id"])
-    query = f"UPDATE teachers SET {', '.join(updates)} WHERE id = ${idx} RETURNING id, full_name, username, contact, address, role"
+    # 2. Update teachers table if the user has a linked teacher profile
+    if teacher_id:
+        updates = []
+        values = []
+        idx = 1
 
-    row = await db.fetchrow(query, *values)
+        if body.full_name is not None:
+            updates.append(f"full_name = ${idx}")
+            values.append(body.full_name)
+            idx += 1
+        if body.contact is not None:
+            updates.append(f"contact = ${idx}")
+            values.append(body.contact)
+            idx += 1
+        if body.address is not None:
+            updates.append(f"address = ${idx}")
+            values.append(body.address)
+            idx += 1
+        if body.username is not None:
+            # Check uniqueness
+            existing = await db.fetchval("SELECT id FROM teachers WHERE username = $1 AND id != $2", body.username, teacher_id)
+            if existing:
+                raise HTTPException(status_code=400, detail="Username already taken")
+            updates.append(f"username = ${idx}")
+            values.append(body.username)
+            idx += 1
 
+        if updates:
+            values.append(teacher_id)
+            await db.execute(f"UPDATE teachers SET {', '.join(updates)} WHERE id = ${idx}", *values)
+
+    # Audit logging
     await db.execute(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
         "PROFILE_UPDATED",
-        {"updates": [k.split(" =")[0] for k in updates]},
+        {"updates": [k for k, v in body.model_dump().items() if v is not None]},
         user["id"]
     )
 
-    # Fetch assigned_class separately
-    from app.cache import get_current_year_id
-    year_id = await get_current_year_id(db)
-    assigned_class = await db.fetchval(
-        "SELECT ('Grade ' || grade || ' ' || medium::TEXT || ' ' || gender_type::TEXT) FROM classes WHERE teacher_id = $1 AND academic_year_id = $2",
-        row["id"], year_id,
-    )
-
-    return UserProfile(
-        id=str(row["id"]),
-        full_name=row["full_name"],
-        username=row["username"],
-        contact=row["contact"],
-        address=row["address"],
-        role=row["role"],
-        assigned_class=assigned_class,
-    )
+    # Return the updated profile via get_me
+    return await get_me(user, db)

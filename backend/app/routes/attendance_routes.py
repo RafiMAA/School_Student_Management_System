@@ -151,6 +151,8 @@ async def submit_attendance_bulk(
         raise HTTPException(
             status_code=400, detail="Cannot mark attendance for a future Sunday")
 
+    teacher_id = user.get("teacher_id")
+
     # Delete existing records for re-submission
     await db.execute(
         "DELETE FROM attendance WHERE class_id = $1 AND attendance_date = $2",
@@ -166,7 +168,7 @@ async def submit_attendance_bulk(
                        VALUES ($1, $2, $3, $4::attendance_status, $5, TRUE)
                        ON CONFLICT (student_id, attendance_date)
                        DO UPDATE SET class_id = $2, status = $4::attendance_status, marked_by = $5, is_locked = TRUE""",
-                    rec.student_id, body.class_id, d, rec.status, user["id"],
+                    rec.student_id, body.class_id, d, rec.status, teacher_id,
                 )
 
     # Audit
@@ -177,7 +179,7 @@ async def submit_attendance_bulk(
         "ATTENDANCE_SUBMITTED",
         {"class_id": body.class_id, "date": str(
             d), "present": present, "absent": absent},
-        user["id"],
+        teacher_id,
     )
 
     return {"message": "Attendance submitted", "present": present, "absent": absent, "total": len(body.records)}
@@ -349,7 +351,7 @@ async def unlock_attendance(
             status_code=404, detail="Attendance record not found")
     await db.execute(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
-        "ATTENDANCE_UNLOCKED", {"attendance_id": att_id}, user["id"],
+        "ATTENDANCE_UNLOCKED", {"attendance_id": att_id}, user.get("teacher_id"),
     )
     return {"message": "Attendance unlocked"}
 

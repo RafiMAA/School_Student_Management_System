@@ -92,7 +92,7 @@ export interface AppUser {
   email: string;
   fullName: string;
   role: UserRole;
-  teacherId: number | null;
+  teacherId: string | null;
 }
 
 export interface User {

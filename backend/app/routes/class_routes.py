@@ -114,7 +114,7 @@ async def create_class(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
         "CLASS_CREATED",
         {"grade": body.grade, "medium": body.medium, "gender_type": body.gender_type},
-        user["id"],
+        user.get("teacher_id"),
     )
 
     cache_invalidate(TOTAL_CLASSES)
@@ -193,7 +193,7 @@ async def update_class(
 
     await db.execute(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
-        "CLASS_UPDATED", {"class_id": class_id}, user["id"],
+        "CLASS_UPDATED", {"class_id": class_id}, user.get("teacher_id"),
     )
 
     return ClassResponse(
@@ -224,7 +224,7 @@ async def delete_class(
 
     await db.execute(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
-        "CLASS_DELETED", {"class_id": class_id}, user["id"],
+        "CLASS_DELETED", {"class_id": class_id}, user.get("teacher_id"),
     )
     cache_invalidate(TOTAL_CLASSES)
     return {"message": "Class deleted"}

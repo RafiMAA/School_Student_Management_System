@@ -113,7 +113,7 @@ async def import_students(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
         "EXCEL_IMPORT",
         {"classes": [f"Grade {g} {m}" for g, m in class_cache.keys()], "imported": imported, "skipped": skipped, "filename": file.filename},
-        user["id"],
+        user.get("teacher_id"),
     )
 
     if imported > 0:
