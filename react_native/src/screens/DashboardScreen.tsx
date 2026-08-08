@@ -143,7 +143,7 @@ export function DashboardScreen({ navigation }: any) {
               </View>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: -4 }}>
                 <Text numberOfLines={1} style={styles.firstName}>
-                  {user?.full_name || 'Welcome'}
+                  {user?.fullName || 'Welcome'}
                 </Text>
                 <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, fontWeight: '700', paddingBottom: 6 }}>
                   {data.current_academic_year ? `Academic Year ${data.current_academic_year}` : ''}
