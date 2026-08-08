@@ -1,19 +1,22 @@
 {
   "expo": {
     "name": "Al-Meera Ahadiya",
-    "slug": "al-meera-ahadiya",
+    "slug": "abdul-rafi",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/ahadiya-logo.png",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "lk.almeera.ahadiya"
+      "bundleIdentifier": "lk.almeera.ahadiya",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/ahadiya-logo.png"
+        "foregroundImage": "./assets/ahadiya-logo-adaptive.png"
       },
       "package": "lk.almeera.ahadiya",
       "predictiveBackGestureEnabled": false
@@ -25,6 +28,12 @@
       "expo-font",
       "@react-native-community/datetimepicker",
       "expo-sharing"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "534060d4-0d02-4570-b485-53256f68dc8b"
+      }
+    },
+    "owner": "abdulrafi"
   }
 }
