@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "Al-Meera Ahadiya",
+    "slug": "al-meera-ahadiya",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/ahadiya-logo.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "lk.almeera.ahadiya"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/ahadiya-logo.png"
+      },
+      "package": "lk.almeera.ahadiya",
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      "@react-native-community/datetimepicker",
+      "expo-sharing"
+    ]
+  }
+}

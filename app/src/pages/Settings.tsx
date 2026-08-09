@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useToast } from '@/contexts/ToastContext';
-import api from '@/lib/apiClient';
+import { supabase } from '@/lib/supabase';
 import { Save, Lock, KeyRound, Eye, EyeOff } from 'lucide-react';
 
 export default function Settings() {
@@ -31,11 +31,14 @@ export default function Settings() {
     
     setLoading(true);
     try {
-      await api.put<any>('/auth/profile', { password: passwords.new_password });
+      const { error } = await supabase.auth.updateUser({
+        password: passwords.new_password,
+      });
+      if (error) throw error;
       addToast('success', 'Password updated successfully');
       setPasswords({ new_password: '', confirm_password: '' });
     } catch (err: any) {
-      addToast('error', err?.data?.detail || 'Failed to update password');
+      addToast('error', err?.message || 'Failed to update password');
     } finally {
       setLoading(false);
     }

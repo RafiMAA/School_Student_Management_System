@@ -197,10 +197,10 @@ export default function Sidebar() {
         >
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white text-xs font-semibold uppercase shrink-0">
-              {user?.full_name?.substring(0, 2) || 'US'}
+              {user?.fullName?.substring(0, 2) || 'US'}
             </div>
             <div className="min-w-0 text-left">
-              <p className="text-white text-sm font-medium truncate">{user?.full_name || 'User'}</p>
+              <p className="text-white text-sm font-medium truncate">{user?.fullName || 'User'}</p>
               <p className="text-slate-400 text-xs">{user?.role || 'Guest'}</p>
             </div>
           </div>

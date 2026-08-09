@@ -1,57 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+"""Auth routes — profile management only.
+
+Login and token refresh are now handled by Supabase Auth directly.
+These routes handle:
+  - GET /me — fetch the current user's profile
+  - PUT /profile — update profile details (name, contact, address, username)
+"""
+
+from fastapi import APIRouter, Depends, HTTPException
 import asyncpg
 
 from app.database import get_db
-from app.auth import verify_password, create_access_token, get_current_user, hash_password
-from app.models import LoginRequest, LoginResponse, UserProfile, ProfileUpdateRequest
+from app.auth import get_current_user
+from app.models import UserProfile, ProfileUpdateRequest
 
 router = APIRouter()
-
-
-@router.post("/login", response_model=LoginResponse)
-async def login(body: LoginRequest, db: asyncpg.Pool = Depends(get_db)):
-    row = await db.fetchrow(
-        "SELECT id, full_name, username, password_hash, role, status FROM teachers WHERE username = $1",
-        body.username,
-    )
-    if not row:
-        raise HTTPException(
-            status_code=401, detail="Invalid username or password")
-    if row["status"] == "Inactive":
-        raise HTTPException(status_code=403, detail="Account is inactive")
-    if not verify_password(body.password, row["password_hash"]):
-        raise HTTPException(
-            status_code=401, detail="Invalid username or password")
-
-    token = create_access_token({"sub": str(row["id"]), "role": row["role"]})
-
-    # Audit log
-    await db.execute(
-        "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
-        "USER_LOGIN",
-        {"username": row["username"]},
-        row["id"],
-    )
-
-    return LoginResponse(
-        access_token=token,
-        role=row["role"],
-        teacher_id=str(row["id"]),
-        full_name=row["full_name"],
-    )
-
-
-@router.post("/logout")
-async def logout(user: dict = Depends(get_current_user)):
-    # Stateless JWT — client discards token. Log the action.
-    return {"message": "Logged out successfully"}
-
-
-@router.post("/refresh")
-async def refresh_token(user: dict = Depends(get_current_user)):
-    """Issue a fresh JWT using the current token's claims. No DB hit."""
-    token = create_access_token({"sub": user["id"], "role": user["role"]})
-    return {"access_token": token}
 
 
 @router.get("/me", response_model=UserProfile)
@@ -59,7 +21,7 @@ async def get_me(
     user: dict = Depends(get_current_user),
     db: asyncpg.Pool = Depends(get_db),
 ):
-    """Fetch the full user profile — this is the one endpoint that hits the DB for user details."""
+    """Fetch the full user profile using the Supabase user UUID."""
     from app.cache import get_current_year_id
     year_id = await get_current_year_id(db)
 
@@ -74,7 +36,7 @@ async def get_me(
         user["id"], year_id,
     )
     if not row:
-        raise HTTPException(status_code=401, detail="User not found")
+        raise HTTPException(status_code=404, detail="User profile not found")
 
     return UserProfile(
         id=str(row["id"]),
@@ -93,10 +55,11 @@ async def update_profile(
     user: dict = Depends(get_current_user),
     db: asyncpg.Pool = Depends(get_db),
 ):
+    """Update the current user's profile. Password changes go through Supabase Auth directly."""
     updates = []
     values = []
     idx = 1
-    
+
     if body.full_name is not None:
         updates.append(f"full_name = ${idx}")
         values.append(body.full_name)
@@ -117,11 +80,10 @@ async def update_profile(
         updates.append(f"username = ${idx}")
         values.append(body.username)
         idx += 1
-    if body.password is not None and body.password.strip():
-        updates.append(f"password_hash = ${idx}")
-        values.append(hash_password(body.password))
-        idx += 1
-        
+
+    # Note: password changes are now handled by supabase.auth.updateUser()
+    # on the frontend. We no longer accept password updates via this endpoint.
+
     if not updates:
         # No changes — return current profile
         from app.cache import get_current_year_id
@@ -139,12 +101,12 @@ async def update_profile(
             contact=row["contact"], address=row["address"], role=row["role"],
             assigned_class=row["assigned_class"],
         )
-        
+
     values.append(user["id"])
     query = f"UPDATE teachers SET {', '.join(updates)} WHERE id = ${idx} RETURNING id, full_name, username, contact, address, role"
-    
+
     row = await db.fetchrow(query, *values)
-    
+
     await db.execute(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
         "PROFILE_UPDATED",
@@ -159,7 +121,7 @@ async def update_profile(
         "SELECT ('Grade ' || grade || ' ' || medium::TEXT || ' ' || gender_type::TEXT) FROM classes WHERE teacher_id = $1 AND academic_year_id = $2",
         row["id"], year_id,
     )
-    
+
     return UserProfile(
         id=str(row["id"]),
         full_name=row["full_name"],

@@ -83,15 +83,7 @@ export default function Dashboard() {
       queryClient.setQueryData(['current-academic-year'], data.academic_year);
       // Persist to localStorage for instant hydration on next page load
       localStorage.setItem('ahadiya_academic_year', JSON.stringify(data.academic_year));
-      // Update stored user data with fresh profile from bootstrap
-      if (data.user) {
-        localStorage.setItem('ahadiya_user', JSON.stringify({
-          id: data.user.id,
-          full_name: data.user.full_name,
-          username: data.user.username,
-          role: data.user.role,
-        }));
-      }
+      
       return data.summary;
     },
   });

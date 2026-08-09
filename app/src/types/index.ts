@@ -85,6 +85,16 @@ export interface AuditLog {
   user_name?: string;
 }
 
+export type UserRole = 'Principal' | 'Admin' | 'Teacher' | 'Super Admin';
+
+export interface AppUser {
+  id: string;
+  email: string;
+  fullName: string;
+  role: UserRole;
+  teacherId: number | null;
+}
+
 export interface User {
   id: string;
   full_name: string;

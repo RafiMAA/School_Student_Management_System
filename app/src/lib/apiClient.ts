@@ -1,8 +1,11 @@
 /**
  * API Client for Ahadiya School Management System
- * Auto-attaches Authorization header, handles errors, retries on 5xx,
- * and silently refreshes JWT tokens before they expire.
+ * Auto-attaches Authorization header and handles errors.
+ * Token is now managed by Supabase Auth — the AuthContext bridges
+ * the Supabase access_token here via setAccessToken().
  */
+
+import { supabase } from './supabase';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
@@ -15,40 +18,6 @@ export function setAccessToken(token: string | null) {
 export function getAccessToken(): string | null {
   return accessToken;
 }
-
-// ── Silent token refresh ──
-// Refresh every 20 minutes (token TTL is 30 min, so we refresh well before expiry)
-let refreshTimer: ReturnType<typeof setInterval> | null = null;
-
-function startTokenRefresh() {
-  stopTokenRefresh();
-  refreshTimer = setInterval(async () => {
-    if (!accessToken) return;
-    try {
-      const res = await fetch(`${BASE_URL}/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${accessToken}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        accessToken = data.access_token;
-        localStorage.setItem('ahadiya_token', data.access_token);
-      }
-    } catch {
-      // Silent failure — next request will get 401 and redirect to login
-    }
-  }, 20 * 60 * 1000); // 20 minutes
-}
-
-function stopTokenRefresh() {
-  if (refreshTimer) {
-    clearInterval(refreshTimer);
-    refreshTimer = null;
-  }
-}
-
-// Start refresh when token is set, stop when cleared
-export { startTokenRefresh, stopTokenRefresh };
 
 class ApiError extends Error {
   status: number;
@@ -84,12 +53,10 @@ async function request<T>(
     const res = await fetch(url, { ...options, headers });
 
     if (res.status === 401) {
-      // Token expired or invalid — clear state
+      // Token expired or invalid — sign out via Supabase
       setAccessToken(null);
-      stopTokenRefresh();
-      localStorage.removeItem('ahadiya_token');
-      localStorage.removeItem('ahadiya_user');
-      
+      supabase.auth.signOut();
+
       // Redirect to login if we aren't already there
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';

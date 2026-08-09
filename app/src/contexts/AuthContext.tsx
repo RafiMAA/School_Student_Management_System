@@ -1,19 +1,20 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api, { setAccessToken, startTokenRefresh, stopTokenRefresh } from '@/lib/apiClient';
-
-interface AuthUser {
-  id: string;
-  full_name: string;
-  username: string;
-  role: 'Principal' | 'Admin' | 'Teacher' | 'Super Admin';
-}
+import { supabase } from '@/lib/supabase';
+import {
+  signInWithPassword,
+  restoreUser,
+  loadAdminProfile,
+  type AppUser,
+  type UserRole,
+} from '@/lib/auth.service';
+import { setAccessToken } from '@/lib/apiClient';
 
 interface AuthContextType {
-  user: AuthUser | null;
+  user: AppUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (email: string, password: string, captchaToken?: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -26,74 +27,61 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // On mount, instantly hydrate from localStorage (no network call needed)
-  // then verify token validity in the background
   useEffect(() => {
-    const token = localStorage.getItem('ahadiya_token');
-    const storedUser = localStorage.getItem('ahadiya_user');
+    // 1. Restore session on page load
+    restoreUser()
+      .then((profile) => {
+        setUser(profile);
+      })
+      .catch(() => {
+        setUser(null);
+      })
+      .finally(() => setIsLoading(false));
 
-    if (token && storedUser) {
-      // Instant hydration — no waiting for network
-      setAccessToken(token);
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch {
-        // Corrupted data — clear and start fresh
-        localStorage.removeItem('ahadiya_user');
+    // 2. Listen for auth state changes (login, logout, token refresh)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Always bridge the token to the API client for FastAPI calls
+      setAccessToken(session?.access_token ?? null);
+
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        return;
       }
-      setIsLoading(false);
-      startTokenRefresh(); // Keep token alive
-      // No background /auth/me call needed — the bootstrap endpoint
-      // validates the token and returns fresh user data anyway.
-    } else if (token) {
-      // Token exists but no stored user — must call /auth/me
-      setAccessToken(token);
-      api.get<AuthUser>('/auth/me')
-        .then((u) => {
-          setUser(u);
-          localStorage.setItem('ahadiya_user', JSON.stringify(u));
-        })
-        .catch(() => {
-          localStorage.removeItem('ahadiya_token');
-          setAccessToken(null);
-        })
-        .finally(() => setIsLoading(false));
-    } else {
-      setIsLoading(false);
-    }
+
+      if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+        try {
+          const profile = await loadAdminProfile(
+            session.user.id,
+            session.user.email ?? '',
+          );
+          if (profile) {
+            setUser(profile);
+          } else if (event === 'SIGNED_IN') {
+            await supabase.auth.signOut();
+            setUser(null);
+          }
+        } catch {
+          if (event === 'SIGNED_IN') setUser(null);
+        }
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const login = async (username: string, password: string) => {
-    const res = await api.post<{
-      access_token: string;
-      role: string;
-      teacher_id: string;
-      full_name: string;
-    }>('/auth/login', { username, password });
-
-    setAccessToken(res.access_token);
-    localStorage.setItem('ahadiya_token', res.access_token);
-
-    const userData: AuthUser = {
-      id: res.teacher_id,
-      full_name: res.full_name,
-      username,
-      role: res.role as AuthUser['role'],
-    };
-    setUser(userData);
-    // Store user data so next page load is instant (no /auth/me round trip)
-    localStorage.setItem('ahadiya_user', JSON.stringify(userData));
-    startTokenRefresh();
+  const login = async (email: string, password: string, captchaToken?: string) => {
+    const profile = await signInWithPassword(email, password, captchaToken);
+    setUser(profile);
   };
 
   const logout = () => {
-    stopTokenRefresh();
+    supabase.auth.signOut();
     setAccessToken(null);
-    localStorage.removeItem('ahadiya_token');
-    localStorage.removeItem('ahadiya_user');
     setUser(null);
   };
 
@@ -127,3 +115,6 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
 
   return isAuthenticated ? <>{children}</> : null;
 }
+
+export const isAdmin = (role?: UserRole | string) =>
+  role === 'Admin' || role === 'Principal' || role === 'Super Admin';

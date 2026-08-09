@@ -1,39 +1,31 @@
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+"""Authentication utilities for verifying Supabase JWTs and role-based access control.
+
+Supabase Auth handles user registration, login, and token issuance.
+This module verifies the JWTs and maps users to their admin_users profile
+for role-based authorization.
+"""
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 import asyncpg
 
 from app.config import get_settings
 from app.database import get_db
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
 
-def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
-
-
-def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
-
-
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-    settings = get_settings()
-    to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=settings.jwt_expire_minutes))
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, settings.jwt_secret, algorithm=settings.jwt_algorithm)
-
-
 def decode_token(token: str) -> dict:
+    """Decode and verify a Supabase-issued JWT."""
     settings = get_settings()
     try:
-        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        payload = jwt.decode(
+            token,
+            settings.supabase_jwt_secret,
+            algorithms=["HS256"],
+            audience="authenticated",
+        )
         return payload
     except JWTError:
         raise HTTPException(
@@ -45,19 +37,41 @@ def decode_token(token: str) -> dict:
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: asyncpg.Pool = Depends(get_db),
 ) -> dict:
-    """Extract user identity from JWT token — pure decode, zero DB hits.
+    """Extract user identity from Supabase JWT and verify admin_users profile.
 
-    Returns only {"id": ..., "role": ...} which is all that authorization
-    checks need.  Endpoints that require the full teacher profile (e.g.
-    /auth/me) should query the DB themselves.
+    Returns {"id": uuid_str, "role": str, "full_name": str, "is_active": bool}.
+    Raises 401 if token is invalid or user is not an active admin.
     """
     payload = decode_token(credentials.credentials)
     user_id = payload.get("sub")
-    role = payload.get("role")
-    if not user_id or not role:
+    if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token payload")
-    return {"id": user_id, "role": role}
+
+    # Look up admin profile — this ensures the user is an authorized admin
+    row = await db.fetchrow(
+        "SELECT id, full_name, role, is_active FROM admin_users WHERE id = $1",
+        user_id,
+    )
+
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to access this system.",
+        )
+
+    if not row["is_active"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been deactivated.",
+        )
+
+    return {
+        "id": str(row["id"]),
+        "role": row["role"],
+        "full_name": row["full_name"],
+    }
 
 
 def require_role(*roles: str):

@@ -36,8 +36,8 @@ export default function Header() {
 
   const pageTitle = breadcrumbMap[location.pathname] || 'Dashboard';
 
-  const initials = user?.full_name
-    ? user.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+  const initials = user?.fullName
+    ? user.fullName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
     : 'U';
 
   useEffect(() => {
@@ -92,7 +92,7 @@ export default function Header() {
           {dropdownOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 py-1 animate-in fade-in duration-150">
               <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700">
-                <p className="text-sm font-medium text-slate-900 dark:text-white">{user?.full_name || 'User'}</p>
+                <p className="text-sm font-medium text-slate-900 dark:text-white">{user?.fullName || 'User'}</p>
                 <p className="text-xs text-slate-500 dark:text-slate-400">{user?.role || 'Guest'}</p>
               </div>
               <button onClick={() => { setDropdownOpen(false); navigate('/profile'); }} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
