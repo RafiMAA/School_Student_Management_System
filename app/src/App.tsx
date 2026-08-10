@@ -14,7 +14,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { AppProvider } from '@/contexts/AppContext';
-import { AuthProvider, ProtectedRoute } from '@/contexts/AuthContext';
+import { AuthProvider, ProtectedRoute, RoleProtectedRoute } from '@/contexts/AuthContext';
 import AppLayout from '@/components/AppLayout';
 
 // Eagerly load hot-path pages (login + dashboard)
@@ -78,9 +78,9 @@ export default function App() {
                   <Route path="/academic-year/manage" element={<ManageAcademicYear />} />
                   <Route path="/academic-year/rules" element={<PromotionRules />} />
                   <Route path="/academic-year/preview" element={<PromotionPreview />} />
-                  <Route path="/admin/teachers" element={<Teachers />} />
-                  <Route path="/admin/teachers/:id" element={<TeacherProfile />} />
-                  <Route path="/admin/audit-logs" element={<AuditLogs />} />
+                  <Route path="/admin/teachers" element={<RoleProtectedRoute allowedRoles={['Principal', 'Admin', 'Super Admin']}><Teachers /></RoleProtectedRoute>} />
+                  <Route path="/admin/teachers/:id" element={<RoleProtectedRoute allowedRoles={['Principal', 'Admin', 'Super Admin']}><TeacherProfile /></RoleProtectedRoute>} />
+                  <Route path="/admin/audit-logs" element={<RoleProtectedRoute allowedRoles={['Principal', 'Admin', 'Super Admin']}><AuditLogs /></RoleProtectedRoute>} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

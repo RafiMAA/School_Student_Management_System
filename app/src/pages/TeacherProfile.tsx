@@ -13,7 +13,7 @@ export default function TeacherProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { addToast } = useToast();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
 
   const [showReset, setShowReset] = useState(false);
@@ -98,6 +98,9 @@ export default function TeacherProfile() {
     setSubmitting(true);
     try {
       await api.patch(`/teachers/${id}`, { role: newRole });
+      if (user?.teacherId === id) {
+        await refreshUser();
+      }
       addToast('success', `Role updated to ${newRole}`);
       queryClient.invalidateQueries({ queryKey: ['teacher', id] });
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
@@ -136,7 +139,7 @@ export default function TeacherProfile() {
   const canModify = hasAdminAccess && 
                     !isProtectedUser && 
                     (teacher.role !== 'Super Admin' || isViewingUserSuperAdmin);
-  const isSelf = user?.id === teacher.id;
+  const isSelf = user?.teacherId === teacher.id;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">

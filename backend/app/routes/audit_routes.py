@@ -3,7 +3,7 @@ from typing import Optional
 import asyncpg
 
 from app.database import get_db
-from app.auth import get_current_user
+from app.auth import require_admin
 from app.models import AuditLogResponse
 
 router = APIRouter()
@@ -19,7 +19,7 @@ async def list_audit_logs(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=10000),
     db: asyncpg.Pool = Depends(get_db),
-    _user: dict = Depends(get_current_user),
+    _user: dict = Depends(require_admin),
 ):
     query = """
         SELECT al.*, t.full_name AS performer_name

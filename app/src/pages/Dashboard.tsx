@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Users, GraduationCap, BookOpen, CheckCircle, XCircle, Eye } from 'lucide-react';
+import { Users, GraduationCap, BookOpen, Award, CheckCircle, XCircle, Eye } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/apiClient';
@@ -22,25 +22,19 @@ interface SummaryData {
 }
 
 interface BootstrapData {
-  user: any;
+  user: unknown;
   academic_year: { year_label: string };
   summary: SummaryData;
 }
-function StatCard({ title, value, icon: Icon, color, onClick }: { title: string; value: string | number; icon: React.ElementType; color: string; onClick?: () => void }) {
-  const colorMap: Record<string, string> = {
-    emerald: 'border-t-emerald-500', blue: 'border-t-blue-500', amber: 'border-t-amber-500', slate: 'border-t-slate-500',
-  };
-  const iconColorMap: Record<string, string> = {
-    emerald: 'text-emerald-600 bg-emerald-50', blue: 'text-blue-600 bg-blue-50', amber: 'text-amber-600 bg-amber-50', slate: 'text-slate-600 bg-slate-50',
-  };
+function StatCard({ title, value, icon: Icon, onClick }: { title: string; value: string | number; icon: React.ElementType; onClick?: () => void }) {
   return (
-    <div onClick={onClick} className={`bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 ${colorMap[color]} border-t-4 p-4 sm:p-5 shadow-sm ${onClick ? 'cursor-pointer hover:shadow-md transition-all hover:-translate-y-0.5' : ''}`}>
+    <div onClick={onClick} className={`bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-4 sm:p-5 shadow-sm ${onClick ? 'cursor-pointer hover:shadow-md transition-all hover:-translate-y-0.5' : ''}`}>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
         <div className="order-2 sm:order-1">
           <p className="text-[11px] sm:text-sm text-slate-500 dark:text-slate-400 font-medium leading-tight">{title}</p>
           <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-0.5 sm:mt-1">{value}</p>
         </div>
-        <div className={`w-8 h-8 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center shrink-0 order-1 sm:order-2 ${iconColorMap[color]}`}>
+        <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center shrink-0 order-1 sm:order-2 bg-emerald-950 text-emerald-400 shadow-inner shadow-emerald-900/40">
           <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
         </div>
       </div>
@@ -124,10 +118,10 @@ export default function Dashboard() {
     <div className="space-y-6">
       {/* Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard title="Total Students" value={summary.total_students} icon={Users} color="emerald" onClick={() => navigate('/students')} />
-        <StatCard title="Total Teachers" value={summary.total_teachers} icon={GraduationCap} color="blue" onClick={() => handleProtectedNavigation('/admin/teachers')} />
-        <StatCard title="Total Classes" value={summary.total_classes} icon={BookOpen} color="amber" onClick={() => handleProtectedNavigation('/classes')} />
-        <StatCard title="Total Alumnis" value={summary?.total_alumnis || 0} icon={Users} color="slate" onClick={() => navigate('/students/alumni')} />
+        <StatCard title="Total Students" value={summary.total_students} icon={Users} onClick={() => navigate('/students')} />
+        <StatCard title="Total Teachers" value={summary.total_teachers} icon={GraduationCap} onClick={() => handleProtectedNavigation('/admin/teachers')} />
+        <StatCard title="Total Classes" value={summary.total_classes} icon={BookOpen} onClick={() => handleProtectedNavigation('/classes')} />
+        <StatCard title="Total Alumnis" value={summary?.total_alumnis || 0} icon={Award} onClick={() => navigate('/students/alumni')} />
       </div>
 
       {/* Attendance Summary + Completion Tracker */}

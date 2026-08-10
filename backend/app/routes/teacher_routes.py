@@ -3,7 +3,7 @@ from typing import Optional
 import asyncpg
 
 from app.database import get_db
-from app.auth import get_current_user, require_admin
+from app.auth import require_admin
 from app.models import TeacherCreate, TeacherUpdate, TeacherResponse, PasswordReset
 from app.cache import cache_invalidate, TOTAL_TEACHERS
 
@@ -24,7 +24,7 @@ def _row_to_response(r, assigned_class=None, assigned_class_ids=None) -> Teacher
 async def list_teachers(
     search: Optional[str] = None,
     db: asyncpg.Pool = Depends(get_db),
-    _user: dict = Depends(get_current_user),
+    _user: dict = Depends(require_admin),
 ):
     from app.cache import get_current_year_id
     year_id = await get_current_year_id(db)
@@ -53,7 +53,7 @@ async def list_teachers(
 async def get_teacher(
     teacher_id: str,
     db: asyncpg.Pool = Depends(get_db),
-    _user: dict = Depends(get_current_user),
+    _user: dict = Depends(require_admin),
 ):
     from app.cache import get_current_year_id
     year_id = await get_current_year_id(db)
@@ -145,61 +145,76 @@ async def update_teacher(
     db: asyncpg.Pool = Depends(get_db),
     user: dict = Depends(require_admin),
 ):
-    target_user = await db.fetchrow("SELECT role, username FROM teachers WHERE id = $1", teacher_id)
-    if not target_user:
-        raise HTTPException(status_code=404, detail="Teacher not found")
-
     update_data = body.model_dump(exclude_unset=True)
     assigned_classes = update_data.pop("assigned_classes", None)
 
-    updates, params, idx = [], [], 1
-    for field, value in update_data.items():
-        if value is not None:
-            if field == "role":
-                if target_user["role"] == "Principal":
-                    raise HTTPException(status_code=403, detail="Cannot modify the Principal's role")
-                if target_user["username"] == "rafimaa.23":
-                    raise HTTPException(status_code=403, detail="Cannot modify Abdul Rafi's role")
-                if value == "Principal":
-                    raise HTTPException(status_code=403, detail="Cannot assign the Principal role")
-                updates.append(f"{field} = ${idx}::teacher_role")
-            else:
-                updates.append(f"{field} = ${idx}")
-            params.append(value)
-            idx += 1
-
-    if not updates and assigned_classes is None:
-        raise HTTPException(status_code=400, detail="No fields to update")
-
-    if updates:
-        params.append(teacher_id)
-        row = await db.fetchrow(f"UPDATE teachers SET {', '.join(updates)} WHERE id = ${idx} RETURNING *", *params)
-        if not row:
-            raise HTTPException(status_code=404, detail="Teacher not found")
-    else:
-        row = await db.fetchrow("SELECT * FROM teachers WHERE id = $1", teacher_id)
-        if not row:
-            raise HTTPException(status_code=404, detail="Teacher not found")
-
-    if assigned_classes is not None:
-        await db.execute(
-            "UPDATE classes SET teacher_id = NULL WHERE teacher_id = $1 AND academic_year_id = (SELECT id FROM academic_years WHERE is_current = TRUE)",
-            teacher_id
-        )
-        if assigned_classes:
-            await db.execute(
-                "UPDATE classes SET teacher_id = $1 WHERE id = ANY($2::uuid[]) AND academic_year_id = (SELECT id FROM academic_years WHERE is_current = TRUE)",
-                teacher_id, assigned_classes
+    # A user's authorization role lives in admin_users, while the role displayed
+    # on teacher screens lives in teachers. Keep both records in one transaction
+    # so a user can never appear to be a Teacher while retaining Admin access.
+    async with db.acquire() as conn:
+        async with conn.transaction():
+            target_user = await conn.fetchrow(
+                "SELECT role, username FROM teachers WHERE id = $1 FOR UPDATE",
+                teacher_id,
             )
+            if not target_user:
+                raise HTTPException(status_code=404, detail="Teacher not found")
 
-    audit_details = {"teacher_id": teacher_id}
-    if body.role:
-        audit_details["new_role"] = body.role
+            updates, params, idx = [], [], 1
+            for field, value in update_data.items():
+                if value is not None:
+                    if field == "role":
+                        if target_user["role"] == "Principal":
+                            raise HTTPException(status_code=403, detail="Cannot modify the Principal's role")
+                        if target_user["username"] == "rafimaa.23":
+                            raise HTTPException(status_code=403, detail="Cannot modify Abdul Rafi's role")
+                        if value == "Principal":
+                            raise HTTPException(status_code=403, detail="Cannot assign the Principal role")
+                        updates.append(f"{field} = ${idx}::teacher_role")
+                    else:
+                        updates.append(f"{field} = ${idx}")
+                    params.append(value)
+                    idx += 1
 
-    await db.execute(
-        "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
-        "TEACHER_UPDATED", audit_details, user.get("teacher_id"),
-    )
+            if not updates and assigned_classes is None:
+                raise HTTPException(status_code=400, detail="No fields to update")
+
+            if updates:
+                params.append(teacher_id)
+                row = await conn.fetchrow(
+                    f"UPDATE teachers SET {', '.join(updates)} WHERE id = ${idx} RETURNING *",
+                    *params,
+                )
+            else:
+                row = await conn.fetchrow("SELECT * FROM teachers WHERE id = $1", teacher_id)
+
+            if body.role is not None:
+                await conn.execute(
+                    "UPDATE admin_users SET role = $1, updated_at = NOW() WHERE teacher_id = $2",
+                    body.role,
+                    teacher_id,
+                )
+
+            if assigned_classes is not None:
+                await conn.execute(
+                    "UPDATE classes SET teacher_id = NULL WHERE teacher_id = $1 AND academic_year_id = (SELECT id FROM academic_years WHERE is_current = TRUE)",
+                    teacher_id,
+                )
+                if assigned_classes:
+                    await conn.execute(
+                        "UPDATE classes SET teacher_id = $1 WHERE id = ANY($2::uuid[]) AND academic_year_id = (SELECT id FROM academic_years WHERE is_current = TRUE)",
+                        teacher_id,
+                        assigned_classes,
+                    )
+
+            audit_details = {"teacher_id": teacher_id}
+            if body.role:
+                audit_details["new_role"] = body.role
+
+            await conn.execute(
+                "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
+                "TEACHER_UPDATED", audit_details, user.get("teacher_id"),
+            )
     return _row_to_response(row)
 
 

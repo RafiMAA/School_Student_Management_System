@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import {
   signInWithPassword,
@@ -16,6 +16,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string, captchaToken?: string) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -24,6 +25,7 @@ const AuthContext = createContext<AuthContextType>({
   isLoading: true,
   login: async () => {},
   logout: () => {},
+  refreshUser: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -85,11 +87,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const refreshUser = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.user) return;
+
+    const profile = await loadAdminProfile(
+      session.user.id,
+      session.user.email ?? '',
+    );
+    setUser(profile);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
+}
+
+/** Prevents users from opening role-restricted pages through a direct URL. */
+export function RoleProtectedRoute({
+  allowedRoles,
+  children,
+}: {
+  allowedRoles: UserRole[];
+  children: ReactNode;
+}) {
+  const { user } = useAuth();
+  return user && allowedRoles.includes(user.role) ? <>{children}</> : <Navigate to="/" replace />;
 }
 
 export const useAuth = () => useContext(AuthContext);

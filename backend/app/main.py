@@ -24,7 +24,19 @@ from app.routes import (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: create DB pool
-    await get_pool()
+    pool = await get_pool()
+
+    # Repair role mismatches created before teacher role updates also changed
+    # admin_users. This is idempotent and leaves unlinked system users alone.
+    await pool.execute(
+        """
+        UPDATE admin_users AS au
+        SET role = t.role::text, updated_at = NOW()
+        FROM teachers AS t
+        WHERE au.teacher_id = t.id
+          AND au.role IS DISTINCT FROM t.role::text
+        """
+    )
     yield
     # Shutdown: close DB pool
     await close_pool()

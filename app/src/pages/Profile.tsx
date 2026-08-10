@@ -11,7 +11,6 @@ export default function Profile() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     full_name: '',
-    full_name: '',
     email: '',
     contact: '',
     address: ''
