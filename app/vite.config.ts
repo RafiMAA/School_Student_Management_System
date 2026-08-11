@@ -16,7 +16,7 @@ export default defineConfig({
       includeAssets: ['logo.svg', 'ahadiya-logo-black.png'],
       manifest: {
         name: 'Al-Meera Ahadiya School Management System',
-        short_name: 'Ahadiya School',
+        short_name: 'Al-Meera Ahadiya',
         description: 'Student, attendance, class, and school management for Al-Meera Ahadiya School.',
         theme_color: '#059669',
         background_color: '#f8fafc',
@@ -25,7 +25,7 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: '/logo.svg',
+            src: '/ahadiya-logo.png',
             sizes: 'any',
             type: 'image/svg+xml',
             purpose: 'any',
