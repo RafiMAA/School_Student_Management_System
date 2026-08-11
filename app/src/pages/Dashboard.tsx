@@ -46,17 +46,21 @@ function CircularProgress({ percentage, size = 120 }: { percentage: number; size
   const strokeWidth = 10;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (percentage / 100) * circumference;
-  const color = percentage >= 80 ? '#059669' : percentage >= 60 ? '#f59e0b' : '#ef4444';
+  const presentPercentage = Math.min(100, Math.max(0, percentage));
+  const offset = circumference - (presentPercentage / 100) * circumference;
+  const presentColor = '#059669';
+  const absentColor = '#ef4444';
   return (
     <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={percentage === 0 ? color : '#e2e8f0'} strokeWidth={strokeWidth} />
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={color} strokeWidth={strokeWidth}
-          strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" className="transition-all duration-1000 ease-out" />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={absentColor} strokeWidth={strokeWidth} />
+        {presentPercentage > 0 && (
+          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={presentColor} strokeWidth={strokeWidth}
+            strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="butt" className="transition-all duration-1000 ease-out" />
+        )}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-bold" style={{ color }}>{percentage}%</span>
+        <span className="text-2xl font-bold" style={{ color: presentPercentage > 0 ? presentColor : absentColor }}>{percentage}%</span>
         <span className="text-xs text-slate-500">Present</span>
       </div>
     </div>

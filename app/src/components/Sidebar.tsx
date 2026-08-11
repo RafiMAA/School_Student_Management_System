@@ -115,7 +115,7 @@ export default function Sidebar() {
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-3 px-4 py-5 border-b border-slate-700">
         <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shrink-0">
-          <img src="/logo.svg" alt="Ahadiya School" className="w-8 h-8 object-contain" />
+          <img src="/ahadiya-logo-black.png" alt="Ahadiya School" className="w-8 h-8 object-contain" />
         </div>
         <div className="min-w-0">
           <h2 className="text-white font-semibold text-sm tracking-tight whitespace-nowrap">Al-Meera Ahadiya School</h2>

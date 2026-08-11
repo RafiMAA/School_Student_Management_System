@@ -13,7 +13,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
-      includeAssets: ['logo.svg', 'ahadiya-logo-black.png'],
+      includeAssets: ['ahadiya-logo.png'],
       manifest: {
         name: 'Al-Meera Ahadiya School Management System',
         short_name: 'Al-Meera Ahadiya',
@@ -26,21 +26,9 @@ export default defineConfig({
         icons: [
           {
             src: '/ahadiya-logo.png',
-            sizes: 'any',
-            type: 'image/svg+xml',
-            purpose: 'any',
-          },
-          {
-            src: '/ahadiya-logo-black.png',
-            sizes: '512x512',
+            sizes: '1863x1863',
             type: 'image/png',
-            purpose: 'any',
-          },
-          {
-            src: '/ahadiya-logo-black-v3.png',
-            sizes: '1024x1024',
-            type: 'image/png',
-            purpose: 'maskable',
+            purpose: 'any maskable',
           },
         ],
       },

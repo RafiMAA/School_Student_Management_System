@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Circle } from 'react-native-svg';
 import { EmptyState, LoadingView } from '../components/UI';
 import { isAdmin, useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -88,12 +89,17 @@ export function DashboardScreen({ navigation }: any) {
     },
   ];
 
-  const attendanceColor =
-    data.overall_percentage >= 80
-      ? colors.primary
-      : data.overall_percentage >= 60
-        ? colors.warning
-        : colors.danger;
+  const attendancePercentage = Math.min(
+    100,
+    Math.max(0, data.overall_percentage),
+  );
+  const attendanceRingSize = 118;
+  const attendanceStrokeWidth = 10;
+  const attendanceRadius = (attendanceRingSize - attendanceStrokeWidth) / 2;
+  const attendanceCircumference = 2 * Math.PI * attendanceRadius;
+  const attendanceOffset =
+    attendanceCircumference -
+    (attendancePercentage / 100) * attendanceCircumference;
   const progress = data.classes_total
     ? `${Math.max(3, (data.classes_submitted / data.classes_total) * 100)}%`
     : '0%';
@@ -206,12 +212,36 @@ export function DashboardScreen({ navigation }: any) {
             </Text>
             <View style={styles.attendanceRow}>
               <View style={styles.ringColumn}>
-                <View
-                  style={[
-                    styles.attendanceRing,
-                    { borderColor: attendanceColor },
-                  ]}
-                >
+                <View style={styles.attendanceRing}>
+                  <Svg
+                    width={attendanceRingSize}
+                    height={attendanceRingSize}
+                    style={StyleSheet.absoluteFill}
+                  >
+                    <Circle
+                      cx={attendanceRingSize / 2}
+                      cy={attendanceRingSize / 2}
+                      r={attendanceRadius}
+                      fill="none"
+                      stroke={colors.danger}
+                      strokeWidth={attendanceStrokeWidth}
+                    />
+                    {attendancePercentage > 0 && (
+                      <Circle
+                        cx={attendanceRingSize / 2}
+                        cy={attendanceRingSize / 2}
+                        r={attendanceRadius}
+                        fill="none"
+                        stroke={colors.primary}
+                        strokeWidth={attendanceStrokeWidth}
+                        strokeDasharray={`${attendanceCircumference} ${attendanceCircumference}`}
+                        strokeDashoffset={attendanceOffset}
+                        strokeLinecap="butt"
+                        rotation={-90}
+                        origin={`${attendanceRingSize / 2}, ${attendanceRingSize / 2}`}
+                      />
+                    )}
+                  </Svg>
                   <Text style={[styles.percentage, { color: colors.text }]}>
                     {data.overall_percentage}%
                   </Text>
@@ -440,7 +470,6 @@ const styles = StyleSheet.create({
     width: 118,
     height: 118,
     borderRadius: 59,
-    borderWidth: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
