@@ -35,7 +35,6 @@ const EditClass = lazy(() => import('@/pages/EditClass'));
 const ExcelImport = lazy(() => import('@/pages/ExcelImport'));
 const PromotionRules = lazy(() => import('@/pages/PromotionRules'));
 const PromotionPreview = lazy(() => import('@/pages/PromotionPreview'));
-const ManageAcademicYear = lazy(() => import('@/pages/ManageAcademicYear'));
 const Teachers = lazy(() => import('@/pages/Teachers'));
 const TeacherProfile = lazy(() => import('@/pages/TeacherProfile'));
 const AuditLogs = lazy(() => import('@/pages/AuditLogs'));
@@ -75,7 +74,6 @@ export default function App() {
                   <Route path="/classes/create" element={<CreateClass />} />
                   <Route path="/classes/edit/:id" element={<EditClass />} />
                   <Route path="/classes/import" element={<ExcelImport />} />
-                  <Route path="/academic-year/manage" element={<ManageAcademicYear />} />
                   <Route path="/academic-year/rules" element={<PromotionRules />} />
                   <Route path="/academic-year/preview" element={<PromotionPreview />} />
                   <Route path="/admin/teachers" element={<RoleProtectedRoute allowedRoles={['Principal', 'Admin', 'Super Admin']}><Teachers /></RoleProtectedRoute>} />

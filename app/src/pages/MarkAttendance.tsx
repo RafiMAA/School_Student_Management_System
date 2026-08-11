@@ -202,7 +202,6 @@ export default function MarkAttendance() {
                   <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
                     <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3 w-12">#</th>
                     <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3">Student Name</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3">Gender</th>
                     <th className="text-center text-xs font-semibold text-slate-500 dark:text-slate-400 px-4 py-3">Status</th>
                   </tr>
                 </thead>
@@ -219,7 +218,6 @@ export default function MarkAttendance() {
                             {student.full_name}
                           </Link>
                         </td>
-                        <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{student.gender}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-center gap-2">
                             <button

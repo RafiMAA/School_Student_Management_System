@@ -57,7 +57,6 @@ const navigation = [
     icon: GraduationCap,
     allowedRoles: ['Super Admin'],
     children: [
-      { name: 'Manage Year', href: '/academic-year/manage' },
       { name: 'Promotion Rules', href: '/academic-year/rules' },
       { name: 'Promotion Preview', href: '/academic-year/preview' },
     ],
