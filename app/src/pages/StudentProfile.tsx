@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, User, Calendar, BookOpen, Phone, GraduationCap, CheckCircle2, XCircle, FileText, Pencil, Trash2 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useToast } from '@/contexts/ToastContext';
@@ -25,19 +25,57 @@ export default function StudentProfile() {
 
   const [student, setStudent] = useState<Student | null>(null);
   const [history, setHistory] = useState<StudentAttendance[]>([]);
+  const [academicYearStart, setAcademicYearStart] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [deleteDialog, setDeleteDialog] = useState(false);
+
+  const yearlyOverview = useMemo(() => {
+    const attendanceDates = history.map(record => record.attendance_date).filter(Boolean).sort();
+    const year = Number((academicYearStart || attendanceDates[0] || new Date().toISOString()).slice(0, 4));
+    const currentSunday = new Date();
+    currentSunday.setHours(0, 0, 0, 0);
+    currentSunday.setDate(currentSunday.getDate() - currentSunday.getDay());
+    const statusByDate = new Map(history.map(record => [record.attendance_date, record.status]));
+    const formatDate = (date: Date) => {
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${date.getFullYear()}-${month}-${day}`;
+    };
+
+    const months = Array.from({ length: 12 }, (_, monthIndex) => {
+      const sundays: { date: string; status?: 'Present' | 'Absent' | 'Upcoming' }[] = [];
+      const lastDay = new Date(year, monthIndex + 1, 0).getDate();
+      for (let day = 1; day <= lastDay; day += 1) {
+        const date = new Date(year, monthIndex, day);
+        if (date.getDay() !== 0) continue;
+        const dateString = formatDate(date);
+        sundays.push({
+          date: dateString,
+          status: date > currentSunday ? 'Upcoming' : statusByDate.get(dateString),
+        });
+      }
+      return {
+        key: `${year}-${String(monthIndex + 1).padStart(2, '0')}`,
+        label: new Date(year, monthIndex, 1).toLocaleString('default', { month: 'short' }),
+        sundays,
+      };
+    });
+
+    return { year, months };
+  }, [academicYearStart, history]);
 
   useEffect(() => {
     if (!id) return;
     
     Promise.all([
       api.get<Student>(`/students/${id}`),
-      api.get<StudentAttendance[]>(`/attendance/student/${id}`)
+      api.get<StudentAttendance[]>(`/attendance/student/${id}`),
+      api.get<{ start_date?: string }>('/academic-years/current').catch(() => null),
     ])
-      .then(([studentData, historyData]) => {
+      .then(([studentData, historyData, academicYear]) => {
         setStudent(studentData);
         setHistory(historyData);
+        setAcademicYearStart(academicYear?.start_date);
       })
       .catch(() => addToast('error', 'Failed to load student profile'))
       .finally(() => setLoading(false));
@@ -135,19 +173,14 @@ export default function StudentProfile() {
           </div>
 
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
-            <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-4">Contact Information</h4>
+            <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-4">Contact Info (Parent/Guardian)</h4>
             <div className="space-y-4">
-              <div className="flex items-start gap-3 text-sm">
-                <User className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Parent/Guardian</p>
-                  <p className="font-medium text-slate-900 dark:text-white">{student.parent_name}</p>
-                </div>
-              </div>
               <div className="flex items-start gap-3 text-sm">
                 <Phone className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Parent's Number</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {student.parent_name ? `${student.parent_name}'s Number` : "Parent/Guardian's Number"}
+                  </p>
                   <p className="font-medium text-slate-900 dark:text-white">{student.parent_contact}</p>
                 </div>
               </div>
@@ -194,6 +227,41 @@ export default function StudentProfile() {
                   </div>
                   <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400">Attendance Rate</p>
                   <p className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">{attendanceRate}%</p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">
+                  Yearly overview
+                </h3>
+                <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-4">
+                  <div className="grid grid-cols-12 gap-1 sm:gap-2">
+                    {yearlyOverview.months.map(month => (
+                      <div key={month.key} className="flex flex-col items-center gap-1.5">
+                        <span className="mb-0.5 text-[9px] font-semibold text-slate-500 dark:text-slate-400 sm:text-[11px]">
+                          {month.label}
+                        </span>
+                        {month.sundays.map(sunday => {
+                          const color = sunday.status === 'Present'
+                            ? 'bg-emerald-500 dark:bg-emerald-500'
+                            : sunday.status === 'Absent'
+                              ? 'bg-red-500 dark:bg-red-500'
+                              : 'bg-slate-100 dark:bg-slate-800';
+                          const label = sunday.status === 'Present' || sunday.status === 'Absent'
+                            ? sunday.status
+                            : sunday.status === 'Upcoming' ? 'Upcoming' : 'Not recorded';
+                          return (
+                            <div
+                              key={sunday.date}
+                              title={`${format(parseISO(sunday.date), 'MMMM dd, yyyy')} — ${label}`}
+                              aria-label={`${format(parseISO(sunday.date), 'MMMM dd, yyyy')}: ${label}`}
+                              className={`aspect-square w-full max-w-7 rounded sm:rounded-md ${color}`}
+                            />
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
