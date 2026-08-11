@@ -27,7 +27,7 @@ const breadcrumbMap: Record<string, string> = {
 export default function Header() {
   const { setMobileSidebarOpen, currentAcademicYear } = useApp();
   const { user, logout } = useAuth();
-  const { theme } = useTheme();
+  const { theme, resolvedTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -100,7 +100,7 @@ export default function Header() {
               </button>
               <button onClick={(e) => { e.stopPropagation(); setAppearanceModalOpen(true); setDropdownOpen(false); }} className="w-full flex items-center justify-between px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
                 <div className="flex items-center gap-2">
-                  {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />} Appearance
+                  {resolvedTheme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />} Appearance
                 </div>
                 <span className="text-xs text-slate-400 capitalize">{theme}</span>
               </button>

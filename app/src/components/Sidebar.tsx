@@ -76,7 +76,7 @@ const navigation = [
 export default function Sidebar() {
   const { user, logout } = useAuth();
   const { isMobileSidebarOpen, setMobileSidebarOpen } = useApp();
-  const { theme } = useTheme();
+  const { theme, resolvedTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
@@ -214,7 +214,7 @@ export default function Sidebar() {
             </button>
             <button onClick={(e) => { e.stopPropagation(); setAppearanceModalOpen(true); setDropdownOpen(false); }} className="w-full flex items-center justify-between px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white">
               <div className="flex items-center gap-2">
-                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />} Appearance
+                {resolvedTheme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />} Appearance
               </div>
               <span className="text-xs text-slate-500 capitalize">{theme}</span>
             </button>

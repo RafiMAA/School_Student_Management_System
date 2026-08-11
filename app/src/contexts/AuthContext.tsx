@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useState, useEffect, type ReactNode } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import {
@@ -28,15 +28,39 @@ const AuthContext = createContext<AuthContextType>({
   refreshUser: async () => {},
 });
 
+const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
+const LAST_ACTIVITY_KEY = 'ahadiya-last-activity';
+const TIMEOUT_NOTICE_KEY = 'ahadiya-session-timeout';
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const logout = useCallback(() => {
+    localStorage.removeItem(LAST_ACTIVITY_KEY);
+    void supabase.auth.signOut();
+    setAccessToken(null);
+    setUser(null);
+  }, []);
+
   useEffect(() => {
     // 1. Restore session on page load
-    restoreUser()
+    const lastActivity = Number(localStorage.getItem(LAST_ACTIVITY_KEY));
+    const sessionAlreadyIdle = lastActivity > 0 && Date.now() - lastActivity >= IDLE_TIMEOUT_MS;
+
+    (sessionAlreadyIdle
+      ? supabase.auth.signOut().then(() => {
+          sessionStorage.setItem(TIMEOUT_NOTICE_KEY, 'true');
+          localStorage.removeItem(LAST_ACTIVITY_KEY);
+          setAccessToken(null);
+          return null;
+        })
+      : restoreUser())
       .then((profile) => {
         setUser(profile);
+        if (profile && !lastActivity) {
+          localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
+        }
       })
       .catch(() => {
         setUser(null);
@@ -76,15 +100,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+
+    let timeoutId: number | undefined;
+    let lastWrite = 0;
+
+    const expireIfIdle = () => {
+      window.clearTimeout(timeoutId);
+      const stored = Number(localStorage.getItem(LAST_ACTIVITY_KEY));
+      const lastActivity = stored || Date.now();
+      if (!stored) localStorage.setItem(LAST_ACTIVITY_KEY, String(lastActivity));
+      const remaining = IDLE_TIMEOUT_MS - (Date.now() - lastActivity);
+
+      if (remaining <= 0) {
+        sessionStorage.setItem(TIMEOUT_NOTICE_KEY, 'true');
+        logout();
+        return;
+      }
+      timeoutId = window.setTimeout(expireIfIdle, remaining);
+    };
+
+    const recordActivity = () => {
+      const now = Date.now();
+      if (now - lastWrite < 15_000) return;
+      lastWrite = now;
+      localStorage.setItem(LAST_ACTIVITY_KEY, String(now));
+      expireIfIdle();
+    };
+
+    const checkWhenVisible = () => {
+      if (document.visibilityState === 'visible') expireIfIdle();
+    };
+    const syncAcrossTabs = (event: StorageEvent) => {
+      if (event.key !== LAST_ACTIVITY_KEY) return;
+      if (event.newValue === null) {
+        void supabase.auth.signOut();
+        setAccessToken(null);
+        setUser(null);
+        return;
+      }
+      expireIfIdle();
+    };
+
+    const activityEvents: (keyof WindowEventMap)[] = [
+      'pointerdown', 'pointermove', 'keydown', 'touchstart', 'scroll',
+    ];
+    activityEvents.forEach(event => window.addEventListener(event, recordActivity, { passive: true }));
+    document.addEventListener('visibilitychange', checkWhenVisible);
+    window.addEventListener('focus', expireIfIdle);
+    window.addEventListener('storage', syncAcrossTabs);
+    expireIfIdle();
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      activityEvents.forEach(event => window.removeEventListener(event, recordActivity));
+      document.removeEventListener('visibilitychange', checkWhenVisible);
+      window.removeEventListener('focus', expireIfIdle);
+      window.removeEventListener('storage', syncAcrossTabs);
+    };
+  }, [logout, user]);
+
   const login = async (email: string, password: string, captchaToken?: string) => {
     const profile = await signInWithPassword(email, password, captchaToken);
+    localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
     setUser(profile);
-  };
-
-  const logout = () => {
-    supabase.auth.signOut();
-    setAccessToken(null);
-    setUser(null);
   };
 
   const refreshUser = async () => {

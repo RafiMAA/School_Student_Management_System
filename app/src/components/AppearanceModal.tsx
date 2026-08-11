@@ -1,4 +1,4 @@
-import { Sun, Moon, X } from 'lucide-react';
+import { Sun, Moon, Monitor, X } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 
 interface AppearanceModalProps {
@@ -51,6 +51,19 @@ export default function AppearanceModal({ isOpen, onClose }: AppearanceModalProp
             <Moon className="w-4 h-4" /> 
             <span>Dark</span>
             {theme === 'dark' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500" />}
+          </button>
+
+          <button
+            onClick={() => { setTheme('system'); onClose(); }}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+              theme === 'system'
+                ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-medium'
+                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+            }`}
+          >
+            <Monitor className="w-4 h-4" />
+            <span>System</span>
+            {theme === 'system' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500" />}
           </button>
         </div>
       </div>

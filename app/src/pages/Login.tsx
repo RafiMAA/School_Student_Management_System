@@ -12,7 +12,7 @@ export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const { addToast } = useToast();
-  const { theme } = useTheme();
+  const { resolvedTheme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -20,6 +20,13 @@ export default function Login() {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const turnstileRef = useRef<HTMLDivElement>(null);
   const turnstileWidgetId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (sessionStorage.getItem('ahadiya-session-timeout') === 'true') {
+      sessionStorage.removeItem('ahadiya-session-timeout');
+      addToast('info', 'You were logged out after 1 hour of inactivity.');
+    }
+  }, [addToast]);
 
   // Load Turnstile widget if site key is configured
   useEffect(() => {
@@ -35,7 +42,7 @@ export default function Login() {
           sitekey: TURNSTILE_SITE_KEY,
           callback: (token: string) => setCaptchaToken(token),
           'expired-callback': () => setCaptchaToken(null),
-          theme: theme === 'dark' ? 'dark' : 'light',
+          theme: resolvedTheme,
           size: 'flexible',
         });
       }
@@ -59,7 +66,7 @@ export default function Login() {
         try { (window as any).turnstile.remove(turnstileWidgetId.current); } catch { /* ignore */ }
       }
     };
-  }, [theme]);
+  }, [resolvedTheme]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,7 +98,7 @@ export default function Login() {
       <div className="relative z-10 w-full max-w-sm mx-4">
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg p-8">
           <div className="text-center mb-6">
-            <img src={theme === 'dark' ? '/ahadiya-logo-white-v3.png' : '/ahadiya-logo-black-v3.png'} alt="Ahadiya School" className="w-20 h-20 object-contain mx-auto mb-4" />
+            <img src={resolvedTheme === 'dark' ? '/ahadiya-logo-white-v3.png' : '/ahadiya-logo-black-v3.png'} alt="Ahadiya School" className="w-20 h-20 object-contain mx-auto mb-4" />
             <h1 className="text-xl font-bold text-slate-900 dark:text-white">Al-Meera Ahadiya School</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Ahadiya Management System</p>
           </div>

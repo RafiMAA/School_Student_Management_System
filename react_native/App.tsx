@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { View } from 'react-native';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
@@ -14,13 +15,15 @@ const queryClient = new QueryClient({
 
 function AppShell() {
   const { colors, dark } = useTheme();
-  const { loading } = useAuth();
+  const { loading, recordActivity } = useAuth();
   if (loading) return <LoadingView fullScreen />;
   return (
-    <NavigationContainer theme={{ dark, colors: { primary: colors.primary, background: colors.background, card: colors.surface, text: colors.text, border: colors.border, notification: colors.danger }, fonts: { regular: { fontFamily: 'System', fontWeight: '400' }, medium: { fontFamily: 'System', fontWeight: '500' }, bold: { fontFamily: 'System', fontWeight: '700' }, heavy: { fontFamily: 'System', fontWeight: '800' } } }}>
-      <StatusBar style={dark ? 'light' : 'dark'} />
-      <RootNavigator />
-    </NavigationContainer>
+    <View style={{ flex: 1 }} onTouchStart={recordActivity}>
+      <NavigationContainer onStateChange={recordActivity} theme={{ dark, colors: { primary: colors.primary, background: colors.background, card: colors.surface, text: colors.text, border: colors.border, notification: colors.danger }, fonts: { regular: { fontFamily: 'System', fontWeight: '400' }, medium: { fontFamily: 'System', fontWeight: '500' }, bold: { fontFamily: 'System', fontWeight: '700' }, heavy: { fontFamily: 'System', fontWeight: '800' } } }}>
+        <StatusBar style={dark ? 'light' : 'dark'} />
+        <RootNavigator />
+      </NavigationContainer>
+    </View>
   );
 }
 

@@ -4,7 +4,7 @@ import asyncpg
 import io
 
 from app.database import get_db
-from app.auth import require_admin
+from app.auth import get_current_user, require_admin
 from app.services.excel_service import create_student_import_template, parse_and_validate_excel
 from app.cache import cache_invalidate, TOTAL_STUDENTS
 
@@ -22,7 +22,7 @@ def _normalise_class_name(value: str) -> str:
 @router.get("/students/template")
 async def download_student_template(
     db: asyncpg.Pool = Depends(get_db),
-    _user: dict = Depends(require_admin),
+    _user: dict = Depends(get_current_user),
 ):
     """Download a workbook whose Class dropdown reflects the current year."""
     classes = await db.fetch(

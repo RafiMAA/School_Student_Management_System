@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import { supabase } from '../services/supabase';
 import {
   signInWithPassword,
@@ -14,6 +16,7 @@ type AuthValue = {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  recordActivity: () => void;
 };
 
 const AuthContext = createContext<AuthValue>({
@@ -22,18 +25,47 @@ const AuthContext = createContext<AuthValue>({
   login: async () => undefined,
   logout: async () => undefined,
   refreshUser: async () => undefined,
+  recordActivity: () => undefined,
 });
+
+const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
+const LAST_ACTIVITY_KEY = 'ahadiya_last_activity';
 
 export function AuthProvider({ children }: React.PropsWithChildren) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const lastWriteRef = useRef(0);
+
+  const recordActivity = useCallback(() => {
+    const now = Date.now();
+    if (now - lastWriteRef.current < 15_000) return;
+    lastWriteRef.current = now;
+    void AsyncStorage.setItem(LAST_ACTIVITY_KEY, String(now));
+  }, []);
+
+  const logout = useCallback(async () => {
+    await AsyncStorage.removeItem(LAST_ACTIVITY_KEY);
+    await supabase.auth.signOut();
+    setAccessToken(null);
+    setUser(null);
+  }, []);
 
   useEffect(() => {
     // 1. Restore session on app launch
-    restoreUser()
-      .then((profile) => {
-        setUser(profile);
+    AsyncStorage.getItem(LAST_ACTIVITY_KEY)
+      .then(async stored => {
+        const lastActivity = Number(stored);
+        if (lastActivity > 0 && Date.now() - lastActivity >= IDLE_TIMEOUT_MS) {
+          await AsyncStorage.removeItem(LAST_ACTIVITY_KEY);
+          await supabase.auth.signOut();
+          setAccessToken(null);
+          return null;
+        }
+        const profile = await restoreUser();
+        if (profile && !lastActivity) recordActivity();
+        return profile;
       })
+      .then(setUser)
       .catch(() => {
         setUser(null);
       })
@@ -72,18 +104,45 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [recordActivity]);
+
+  useEffect(() => {
+    if (!user) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let disposed = false;
+
+    const checkIdle = async () => {
+      if (disposed) return;
+      if (timer) clearTimeout(timer);
+      const stored = await AsyncStorage.getItem(LAST_ACTIVITY_KEY);
+      const lastActivity = Number(stored) || Date.now();
+      if (!stored) await AsyncStorage.setItem(LAST_ACTIVITY_KEY, String(lastActivity));
+      const remaining = IDLE_TIMEOUT_MS - (Date.now() - lastActivity);
+      if (remaining <= 0) {
+        await logout();
+        return;
+      }
+      timer = setTimeout(checkIdle, remaining);
+    };
+
+    const appStateSubscription = AppState.addEventListener('change', state => {
+      if (state === 'active') void checkIdle();
+    });
+    void checkIdle();
+
+    return () => {
+      disposed = true;
+      if (timer) clearTimeout(timer);
+      appStateSubscription.remove();
+    };
+  }, [logout, user]);
 
   const login = async (email: string, password: string) => {
     const profile = await signInWithPassword(email, password);
+    lastWriteRef.current = 0;
+    recordActivity();
     setUser(profile);
     // Token bridging is handled by onAuthStateChange listener
-  };
-
-  const logout = async () => {
-    await supabase.auth.signOut();
-    setAccessToken(null);
-    setUser(null);
   };
 
   const refreshUser = async () => {
@@ -97,7 +156,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser, recordActivity }}>
       {children}
     </AuthContext.Provider>
   );

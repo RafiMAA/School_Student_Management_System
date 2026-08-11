@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useToast } from '@/contexts/ToastContext';
 import { supabase } from '@/lib/supabase';
-import { Save, Lock, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { Save, Lock, KeyRound, Eye, EyeOff, Download, Smartphone, CheckCircle } from 'lucide-react';
+import { canInstallPWA, isRunningAsPWA, promptPWAInstall, subscribeToPWAInstall } from '@/lib/pwaInstall';
 
 export default function Settings() {
   const { addToast } = useToast();
@@ -13,6 +14,21 @@ export default function Settings() {
   });
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [canInstall, setCanInstall] = useState(canInstallPWA());
+  const [isInstalled, setIsInstalled] = useState(isRunningAsPWA());
+
+  useEffect(() => subscribeToPWAInstall(() => {
+    setCanInstall(canInstallPWA());
+    setIsInstalled(isRunningAsPWA());
+  }), []);
+
+  const handleInstall = async () => {
+    const outcome = await promptPWAInstall();
+    if (outcome === 'accepted') {
+      setCanInstall(false);
+      addToast('success', 'Ahadiya School app installed successfully');
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPasswords({ ...passwords, [e.target.name]: e.target.value });
@@ -46,6 +62,33 @@ export default function Settings() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+            <Smartphone className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Install Ahadiya School App</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Use the management system like an app from your home screen</p>
+          </div>
+        </div>
+        <div className="p-6">
+          {isInstalled ? (
+            <div className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
+              <CheckCircle className="w-5 h-5" /> App is installed on this device
+            </div>
+          ) : canInstall ? (
+            <button onClick={handleInstall} className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg transition-colors">
+              <Download className="w-4 h-4" /> Install App
+            </button>
+          ) : (
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              Open your browser menu and choose <strong>Install app</strong> or <strong>Add to Home Screen</strong>. On iPhone and iPad, use Safari's Share menu.
+            </p>
+          )}
+        </div>
+      </div>
+
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
