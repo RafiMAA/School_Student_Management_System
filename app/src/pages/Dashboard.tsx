@@ -48,19 +48,18 @@ function CircularProgress({ percentage, size = 120 }: { percentage: number; size
   const circumference = 2 * Math.PI * radius;
   const presentPercentage = Math.min(100, Math.max(0, percentage));
   const offset = circumference - (presentPercentage / 100) * circumference;
-  const presentColor = '#059669';
-  const absentColor = '#ef4444';
+  const progressColor = presentPercentage > 60 ? '#059669' : '#ef4444';
   return (
     <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={absentColor} strokeWidth={strokeWidth} />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" className="stroke-slate-200 dark:stroke-slate-700" strokeWidth={strokeWidth} />
         {presentPercentage > 0 && (
-          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={presentColor} strokeWidth={strokeWidth}
+          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={progressColor} strokeWidth={strokeWidth}
             strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="butt" className="transition-all duration-1000 ease-out" />
         )}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-bold" style={{ color: presentPercentage > 0 ? presentColor : absentColor }}>{percentage}%</span>
+        <span className={`text-2xl font-bold ${presentPercentage === 0 ? 'text-slate-500 dark:text-slate-400' : ''}`} style={presentPercentage > 0 ? { color: progressColor } : undefined}>{percentage}%</span>
         <span className="text-xs text-slate-500">Present</span>
       </div>
     </div>

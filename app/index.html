@@ -4,21 +4,59 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Al-Meera Ahadiya School Management System — Student, attendance, and class management" />
-    <meta name="theme-color" content="#059669" />
+    <meta id="theme-color-meta" name="theme-color" content="#f8fafc" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Al-Meera Ahadiya" />
     <link rel="icon" href="/ahadiya-logo-black.png" type="image/png" />
-    <link rel="apple-touch-icon" href="/ahadiya-logo.png" />
+    <link rel="apple-touch-icon" href="/ahadiya-pwa-icon-192.png" />
     <script>
       (() => {
         const saved = localStorage.getItem('ahadiya-theme-mode') || 'system';
         const dark = saved === 'dark' || (saved === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
         document.documentElement.classList.toggle('dark', dark);
         document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+        document.querySelector('#theme-color-meta').setAttribute('content', dark ? '#06101f' : '#f8fafc');
       })();
     </script>
+    <style>
+      html, body, #root { min-height: 100%; margin: 0; }
+      #pwa-startup {
+        min-height: 100vh;
+        min-height: 100dvh;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: #f8fafc;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        text-align: center;
+      }
+      #pwa-startup-content { transform: translateY(-3vh); }
+      #pwa-startup img { width: min(64vw, 300px); height: auto; display: block; margin: 0 auto; }
+      #pwa-startup .startup-logo-dark { display: none; }
+      #pwa-startup h1 {
+        margin: 20px 0 0;
+        color: #0f172a;
+        font-size: clamp(1.65rem, 6vw, 2.6rem);
+        font-weight: 800;
+        line-height: 1.15;
+        letter-spacing: -0.025em;
+      }
+      #pwa-startup p {
+        margin: 12px 0 0;
+        color: #059669;
+        font-size: clamp(1rem, 4vw, 1.45rem);
+        font-weight: 700;
+      }
+      html.dark #pwa-startup { background: #06101f; }
+      html.dark #pwa-startup .startup-logo-light { display: none; }
+      html.dark #pwa-startup .startup-logo-dark { display: block; }
+      html.dark #pwa-startup h1 { color: #fff; }
+      html.dark #pwa-startup p { color: #34d399; }
+    </style>
     <title>Ahadiya School</title>
 
     <!-- DNS prefetch + preconnect to API origin so TLS handshake happens during page parse -->
@@ -30,7 +68,16 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="pwa-startup" role="status" aria-label="Loading Al-Meera Ahadiya School">
+        <div id="pwa-startup-content">
+          <img class="startup-logo-light" src="/ahadiya-logo-black-v3.png" alt="Al-Meera Ahadiya School" />
+          <img class="startup-logo-dark" src="/ahadiya-logo-white-v3.png" alt="Al-Meera Ahadiya School" />
+          <h1>Al-Meera Ahadiya School</h1>
+          <p>Ahadiya Management System</p>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

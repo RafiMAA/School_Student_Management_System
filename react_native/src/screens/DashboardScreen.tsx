@@ -100,6 +100,8 @@ export function DashboardScreen({ navigation }: any) {
   const attendanceOffset =
     attendanceCircumference -
     (attendancePercentage / 100) * attendanceCircumference;
+  const attendanceProgressColor =
+    attendancePercentage > 60 ? colors.primary : colors.danger;
   const progress = data.classes_total
     ? `${Math.max(3, (data.classes_submitted / data.classes_total) * 100)}%`
     : '0%';
@@ -223,7 +225,7 @@ export function DashboardScreen({ navigation }: any) {
                       cy={attendanceRingSize / 2}
                       r={attendanceRadius}
                       fill="none"
-                      stroke={colors.danger}
+                      stroke={colors.border}
                       strokeWidth={attendanceStrokeWidth}
                     />
                     {attendancePercentage > 0 && (
@@ -232,7 +234,7 @@ export function DashboardScreen({ navigation }: any) {
                         cy={attendanceRingSize / 2}
                         r={attendanceRadius}
                         fill="none"
-                        stroke={colors.primary}
+                        stroke={attendanceProgressColor}
                         strokeWidth={attendanceStrokeWidth}
                         strokeDasharray={`${attendanceCircumference} ${attendanceCircumference}`}
                         strokeDashoffset={attendanceOffset}
@@ -242,7 +244,17 @@ export function DashboardScreen({ navigation }: any) {
                       />
                     )}
                   </Svg>
-                  <Text style={[styles.percentage, { color: colors.text }]}>
+                  <Text
+                    style={[
+                      styles.percentage,
+                      {
+                        color:
+                          attendancePercentage > 0
+                            ? attendanceProgressColor
+                            : colors.muted,
+                      },
+                    ]}
+                  >
                     {data.overall_percentage}%
                   </Text>
                   <Text style={[styles.ringLabel, { color: colors.muted }]}>

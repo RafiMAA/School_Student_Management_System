@@ -40,6 +40,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', resolvedTheme === 'dark');
     document.documentElement.style.colorScheme = resolvedTheme;
+    document.querySelector<HTMLMetaElement>('#theme-color-meta')?.setAttribute(
+      'content',
+      resolvedTheme === 'dark' ? '#06101f' : '#f8fafc',
+    );
     localStorage.setItem(THEME_KEY, theme);
     localStorage.removeItem('ahadiya-theme');
   }, [theme, resolvedTheme]);

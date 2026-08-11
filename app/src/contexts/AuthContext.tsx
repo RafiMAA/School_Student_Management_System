@@ -9,6 +9,7 @@ import {
   type UserRole,
 } from '@/lib/auth.service';
 import { setAccessToken } from '@/lib/apiClient';
+import StartupScreen from '@/components/StartupScreen';
 
 interface AuthContextType {
   user: AppUser | null;
@@ -213,11 +214,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   }, [isLoading, isAuthenticated, navigate]);
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
-      </div>
-    );
+    return <StartupScreen />;
   }
 
   return isAuthenticated ? <>{children}</> : null;
