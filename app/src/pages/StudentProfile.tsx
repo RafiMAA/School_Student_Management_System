@@ -7,6 +7,7 @@ import api from '@/lib/apiClient';
 import type { Student } from '@/types';
 import StudentAchievements from '@/components/StudentAchievements';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface StudentAttendance {
   id: string;
@@ -20,6 +21,7 @@ export default function StudentProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const { user } = useAuth();
 
   const [student, setStudent] = useState<Student | null>(null);
   const [history, setHistory] = useState<StudentAttendance[]>([]);
@@ -81,9 +83,11 @@ export default function StudentProfile() {
           <button onClick={() => navigate(`/students/edit/${id}`)} className="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/40 rounded-lg transition-colors text-sm font-medium">
             <Pencil className="w-4 h-4" /> Edit
           </button>
-          <button onClick={() => setDeleteDialog(true)} className="flex items-center gap-2 px-3 py-2 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 rounded-lg transition-colors text-sm font-medium">
-            <Trash2 className="w-4 h-4" /> Delete
-          </button>
+          {user?.role === 'Super Admin' && (
+            <button onClick={() => setDeleteDialog(true)} className="flex items-center gap-2 px-3 py-2 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 rounded-lg transition-colors text-sm font-medium">
+              <Trash2 className="w-4 h-4" /> Delete
+            </button>
+          )}
         </div>
       </div>
 
@@ -246,18 +250,20 @@ export default function StudentProfile() {
       </div>
 
       {/* Delete Dialog */}
-      <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Student</DialogTitle>
-            <DialogDescription>Are you sure you want to soft delete this student? They will be marked as Inactive.</DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end gap-3 mt-4">
-            <button onClick={() => setDeleteDialog(false)} className="px-4 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 dark:text-slate-300">Cancel</button>
-            <button onClick={handleDelete} className="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg">Delete</button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {user?.role === 'Super Admin' && (
+        <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Permanently Delete Student</DialogTitle>
+              <DialogDescription>This permanently deletes the student, including all attendance records and student reports. This action cannot be undone.</DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end gap-3 mt-4">
+              <button onClick={() => setDeleteDialog(false)} className="px-4 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 dark:text-slate-300">Cancel</button>
+              <button onClick={handleDelete} className="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg">Delete Permanently</button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

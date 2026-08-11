@@ -9,7 +9,8 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Avatar, Button, Card, EmptyState, Field, LoadingView, PageHeader, Pill, Row, Screen, Segmented, SelectField } from '../components/UI';
 import { useTheme } from '../contexts/ThemeContext';
-import { api, ApiError } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import { api, ApiError, API_BASE_URL, getAccessToken } from '../services/api';
 import type { SchoolClass, Student } from '../types';
 
 export function StudentsScreen({ navigation }: any) {
@@ -21,6 +22,7 @@ export function StudentsScreen({ navigation }: any) {
 
 export function StudentDetailScreen({ route, navigation }: any) {
   const { colors } = useTheme(); const id = route.params.id; const qc = useQueryClient();
+  const { user } = useAuth();
   const student = useQuery({ queryKey: ['student', id], queryFn: () => api.get<Student>(`/students/${id}`) });
   const attendance = useQuery({ queryKey: ['studentAttendance', id], queryFn: () => api.get<any[]>(`/attendance/student/${id}`) });
   const academicYear = useQuery({ queryKey: ['academicYearCurrent'], queryFn: () => api.get<{ start_date?: string }>('/academic-years/current') });
@@ -72,7 +74,13 @@ export function StudentDetailScreen({ route, navigation }: any) {
 
   if (student.isLoading) return <LoadingView fullScreen />; const st = student.data; if (!st) return <Screen><EmptyState title="Student not found" /></Screen>;
 
-  const remove = () => Alert.alert('Delete student?', 'This action cannot be undone.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: async () => { try { await api.delete(`/students/${id}`); qc.invalidateQueries({ queryKey: ['students'] }); navigation.goBack(); } catch (e) { Alert.alert('Could not delete', (e as ApiError).message); } } }]);
+  const remove = () => {
+    if (user?.role !== 'Super Admin') {
+      Alert.alert('Access denied', 'Only the Super Admin can permanently delete students.');
+      return;
+    }
+    Alert.alert('Permanently delete student?', 'This permanently deletes the student, attendance records, and student reports. This action cannot be undone.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete Permanently', style: 'destructive', onPress: async () => { try { await api.delete(`/students/${id}`); qc.invalidateQueries({ queryKey: ['students'] }); navigation.goBack(); } catch (e) { Alert.alert('Could not delete', (e as ApiError).message); } } }]);
+  };
   const addReport = async () => { if (!reportText.trim()) return; setReportBusy(true); try { await api.post(`/students/${id}/achievements`, { achievement_text: reportText.trim() }); setReportText(''); await qc.invalidateQueries({ queryKey: ['studentReports', id] }); } catch (e) { Alert.alert('Could not add report', (e as ApiError).message); } finally { setReportBusy(false); } };
   const deleteReport = (reportId: string) => Alert.alert('Delete report?', 'This report will be permanently removed.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: async () => { try { await api.delete(`/students/${id}/achievements/${reportId}`); qc.invalidateQueries({ queryKey: ['studentReports', id] }); } catch (e) { Alert.alert('Could not delete report', (e as ApiError).message); } } }]);
   return <Screen><View style={s.profile}><Avatar name={st.full_name} size={82} /><Text style={[s.profileName, { color: colors.text }]}>{st.full_name}</Text><Pill text={st.status} /></View>{st.status !== 'Alumni' && (<View style={s.metrics}><Card style={s.metric}><Text style={[s.metricValue, { color: colors.text }]}>{records.length}</Text><Text style={{ color: colors.muted, fontSize: 11 }}>Sundays</Text></Card><Card style={s.metric}><Text style={[s.metricValue, { color: colors.primary }]}>{present}</Text><Text style={{ color: colors.muted, fontSize: 11 }}>Present</Text></Card><Card style={s.metric}><Text style={[s.metricValue, { color: colors.info }]}>{rate}%</Text><Text style={{ color: colors.muted, fontSize: 11 }}>Rate</Text></Card></View>)}<Card><Row icon="library-outline" title="Class" subtitle={st.class_name || `Grade ${st.current_grade} · ${st.medium}`} /><Row icon="calendar-outline" title="Date of birth" subtitle={st.date_of_birth} /><Row icon="people-outline" title="Parent" subtitle={st.parent_name} /><Row icon="call-outline" title="Parent contact" subtitle={st.parent_contact} /><Row icon="calendar-number-outline" title="Joined" subtitle={st.joined_date} /></Card>{st.status !== 'Alumni' && (<><Text style={[s.section, { color: colors.text }]}>Yearly overview</Text><View style={[s.yearGridWrap, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}><View style={s.yearGrid}>{monthsData.map(m => <View key={m.monthKey} style={s.monthColumn}><Text style={[s.monthLabel, { color: colors.muted }]}>{m.label}</Text>{m.days.map((r, week) => { const bg = r.status === 'Present' ? colors.primary : r.status === 'Absent' ? colors.danger : colors.surfaceAlt; return <View key={`${m.monthKey}-${week}`} style={[s.yearCell, { backgroundColor: bg }]} />; })}</View>)}</View></View></>)}<Card style={s.reportCard}><View style={s.reportHeader}><Ionicons name="document-text-outline" size={18} color={colors.warning} /><Text style={[s.reportTitle, { color: colors.text }]}>Student Report</Text></View><Field label="Add report" placeholder="Year-end marks, Quran count, achievements..." value={reportText} onChangeText={setReportText} multiline /><Button title="Add Report" icon="send-outline" loading={reportBusy} onPress={addReport} />{reports.isLoading ? <LoadingView /> : !reports.data?.length ? <EmptyState icon="document-text-outline" title="No reports recorded" text="Add the student's first report above." /> : <View style={s.reportList}>{reports.data.map(report => <View key={report.id} style={[s.reportItem, { borderBottomColor: colors.border }]}><View style={{ flex: 1 }}><Text style={[s.reportText, { color: colors.text }]}>{report.achievement_text}</Text><Text style={{ color: colors.muted, fontSize: 11, marginTop: 4 }}>{report.academic_year_label || 'Academic year'}</Text></View><Pressable onPress={() => deleteReport(report.id)}><Ionicons name="trash-outline" size={18} color={colors.danger} /></Pressable></View>)}</View>}</Card><View style={s.filterRow}><View style={{ flex: 1 }}><Button title="Edit" icon="create-outline" variant="outline" onPress={() => navigation.navigate('StudentForm', { id })} /></View><View style={{ flex: 1 }}><Button title="Delete" icon="trash-outline" variant="danger" onPress={remove} /></View></View></Screen>;
@@ -97,11 +105,20 @@ export function ImportStudentsScreen({ navigation }: any) {
   const [preview, setPreview] = useState<{ valid: number; errors: { row?: number; message?: string }[] } | null>(null);
   const [busy, setBusy] = useState(false);
   const downloadTemplate = async () => {
-    const csv = 'Student Name,Gender,DOB (YYYY-MM-DD),Parent Name,Contact,Grade,Medium\nExample Student,Male,2015-01-15,Parent Name,0771234567,5,Sinhala\n';
-    const uri = `${FileSystem.documentDirectory}ahadiya-student-import-template.csv`;
-    await FileSystem.writeAsStringAsync(uri, csv);
-    if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri, { mimeType: 'text/csv', dialogTitle: 'Download student import template' });
-    else Alert.alert('Template ready', uri);
+    setBusy(true);
+    try {
+      const uri = `${FileSystem.documentDirectory}student_import_template.xlsx`;
+      const accessToken = getAccessToken();
+      await FileSystem.downloadAsync(`${API_BASE_URL}/import/students/template`, uri, {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      });
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri, { mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', dialogTitle: 'Download student import template' });
+      else Alert.alert('Template ready', uri);
+    } catch (e) {
+      Alert.alert('Download failed', e instanceof Error ? e.message : 'Could not download the template.');
+    } finally {
+      setBusy(false);
+    }
   };
   const chooseFile = async () => {
     const result = await DocumentPicker.getDocumentAsync({ type: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/csv'], copyToCacheDirectory: true });
@@ -119,7 +136,7 @@ export function ImportStudentsScreen({ navigation }: any) {
       else { Alert.alert('Import complete', `${result.imported || 0} students imported.`); qc.invalidateQueries({ queryKey: ['students'] }); navigation.goBack(); }
     } catch (e) { Alert.alert('Import failed', (e as ApiError).message); } finally { setBusy(false); }
   };
-  return <Screen><PageHeader title="Import Students" subtitle="Upload an Excel or CSV file" /><Card style={{ gap: 15 }}><Text style={{ color: colors.text, fontWeight: '800' }}>Required columns</Text><Text style={{ color: colors.muted, lineHeight: 20 }}>Student Name, Gender, DOB (YYYY-MM-DD), Parent Name, Contact, Grade, Medium</Text><Button title="Download Excel template" icon="download-outline" variant="soft" onPress={downloadTemplate} /><Button title={file ? file.name : 'Choose Excel / CSV file'} icon="document-attach-outline" variant="outline" onPress={chooseFile} />{file && !preview && <Button title="Validate File" icon="checkmark-circle-outline" loading={busy} onPress={() => upload(false)} />}{preview && <View style={{ gap: 10 }}><Text style={{ color: colors.primary, fontWeight: '800' }}>{preview.valid} valid rows</Text>{preview.errors.slice(0, 5).map((error, index) => <Text key={index} style={{ color: colors.danger, fontSize: 12 }}>Row {error.row || '?'}: {error.message}</Text>)}{!preview.errors.length && <Button title="Confirm Import" icon="cloud-upload-outline" loading={busy} onPress={() => upload(true)} />}</View>}</Card></Screen>;
+  return <Screen><PageHeader title="Import Students" subtitle="Upload an Excel or CSV file" /><Card style={{ gap: 15 }}><Text style={{ color: colors.text, fontWeight: '800' }}>Required columns</Text><Text style={{ color: colors.muted, lineHeight: 20 }}>Full Name, Gender, Date of Birth, Parent/Guardian Name, Parent Contact, Secondary Name, Secondary Contact, Class, Joined Date</Text><Button title="Download Excel template" icon="download-outline" variant="soft" loading={busy} onPress={downloadTemplate} /><Button title={file ? file.name : 'Choose Excel / CSV file'} icon="document-attach-outline" variant="outline" onPress={chooseFile} />{file && !preview && <Button title="Validate File" icon="checkmark-circle-outline" loading={busy} onPress={() => upload(false)} />}{preview && <View style={{ gap: 10 }}><Text style={{ color: colors.primary, fontWeight: '800' }}>{preview.valid} valid rows</Text>{preview.errors.slice(0, 5).map((error, index) => <Text key={index} style={{ color: colors.danger, fontSize: 12 }}>Row {error.row || '?'}: {error.message}</Text>)}{!preview.errors.length && <Button title="Confirm Import" icon="cloud-upload-outline" loading={busy} onPress={() => upload(true)} />}</View>}</Card></Screen>;
 }
 
 export function AlumniScreen({ navigation }: any) { const query = useQuery({ queryKey: ['alumni'], queryFn: () => api.get<{ items: Student[]; total: number }>('/students?status=Alumni&page=1&page_size=100') }); return <Screen refreshing={query.isRefetching} onRefresh={query.refetch}><PageHeader title="Alumni" subtitle={`${query.data?.total || 0} graduated students`} />{query.isLoading ? <LoadingView /> : !query.data?.items.length ? <EmptyState icon="ribbon-outline" title="No alumni records" /> : <Card>{query.data.items.map(st => <Row key={st.id} title={st.full_name} subtitle={`${st.gender} · ${st.own_contact || 'No contact number'} · Graduated ${st.graduation_year || '—'}`} onPress={() => navigation.navigate('StudentDetail', { id: st.id })} />)}</Card>}</Screen>; }

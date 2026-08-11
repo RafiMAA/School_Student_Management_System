@@ -34,7 +34,7 @@ function StatCard({ title, value, icon: Icon, onClick }: { title: string; value:
           <p className="text-[11px] sm:text-sm text-slate-500 dark:text-slate-400 font-medium leading-tight">{title}</p>
           <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-0.5 sm:mt-1">{value}</p>
         </div>
-        <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center shrink-0 order-1 sm:order-2 bg-emerald-950 text-emerald-400 shadow-inner shadow-emerald-900/40">
+        <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center shrink-0 order-1 sm:order-2 bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 dark:shadow-inner dark:shadow-emerald-900/40">
           <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
         </div>
       </div>
@@ -51,7 +51,7 @@ function CircularProgress({ percentage, size = 120 }: { percentage: number; size
   return (
     <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#e2e8f0" strokeWidth={strokeWidth} />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={percentage === 0 ? color : '#e2e8f0'} strokeWidth={strokeWidth} />
         <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={color} strokeWidth={strokeWidth}
           strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" className="transition-all duration-1000 ease-out" />
       </svg>

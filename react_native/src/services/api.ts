@@ -13,6 +13,7 @@ export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || `http://${fa
 let token: string | null = null;
 
 export const setAccessToken = (value: string | null) => { token = value; };
+export const getAccessToken = () => token;
 
 export class ApiError extends Error { constructor(public status: number, message: string, public data?: any) { super(message); } }
 

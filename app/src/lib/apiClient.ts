@@ -79,9 +79,13 @@ async function request<T>(
       throw new ApiError(res.status, data.detail || `Request failed: ${res.status}`, data);
     }
 
-    // Handle PDF downloads (binary response)
+    // Handle binary downloads (reports and generated Excel templates)
     const contentType = res.headers.get('content-type') || '';
-    if (contentType.includes('application/pdf')) {
+    if (
+      contentType.includes('application/pdf') ||
+      contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') ||
+      contentType.includes('application/octet-stream')
+    ) {
       return (await res.blob()) as unknown as T;
     }
 

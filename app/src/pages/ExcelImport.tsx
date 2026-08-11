@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/contexts/ToastContext';
 import api from '@/lib/apiClient';
+import { saveAs } from 'file-saver';
 
 interface ValidationResult {
   valid: number;
@@ -19,16 +20,29 @@ export default function ExcelImport() {
   const [file, setFile] = useState<File | null>(null);
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [result, setResult] = useState<ValidationResult | null>(null);
+
+  const handleDownloadTemplate = async () => {
+    setDownloading(true);
+    try {
+      const template = await api.get<Blob>('/import/students/template');
+      saveAs(template, 'student_import_template.xlsx');
+    } catch (err: any) {
+      addToast('error', err?.data?.detail || 'Failed to download the Excel template');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
     if (e.dataTransfer.files?.length) {
       const droppedFile = e.dataTransfer.files[0];
-      if (droppedFile.name.endsWith('.xlsx') || droppedFile.name.endsWith('.xls')) {
+      if (droppedFile.name.endsWith('.xlsx') || droppedFile.name.endsWith('.csv')) {
         setFile(droppedFile);
       } else {
-        addToast('error', 'Please upload a valid Excel file (.xlsx or .xls)');
+        addToast('error', 'Please upload a valid .xlsx or .csv file');
       }
     }
   };
@@ -64,13 +78,14 @@ export default function ExcelImport() {
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">Import Data via Excel</h2>
-        <a 
-          href="/student_import_template.xlsx"
-          download
+        <button
+          type="button"
+          onClick={handleDownloadTemplate}
+          disabled={downloading}
           className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/40 rounded-lg transition-colors"
         >
-          <Download className="w-4 h-4" /> Download Template
-        </a>
+          <Download className="w-4 h-4" /> {downloading ? 'Preparing...' : 'Download Template'}
+        </button>
       </div>
 
       {/* Progress Steps */}
@@ -109,11 +124,11 @@ export default function ExcelImport() {
               <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
                 <li className="flex items-start gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                  <strong>Row 1 (Headers):</strong> Student Name | Gender | DOB (YYYY-MM-DD) | Parent Name | Contact | Grade | Medium
+                  <strong>Row 1 (Headers):</strong> Full Name | Gender | Date of Birth | Parent/Guardian Name | Parent Contact | Secondary Name | Secondary Contact | Class | Joined Date
                 </li>
                 <li className="flex items-start gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                  <strong>Row 2+:</strong> Student Data
+                  <strong>Row 2+:</strong> Enter student data and choose Gender and Class from the provided dropdowns
                 </li>
               </ul>
             </div>
@@ -148,7 +163,7 @@ export default function ExcelImport() {
                 <input
                   type="file"
                   className="hidden"
-                  accept=".xlsx, .xls"
+                  accept=".xlsx,.csv"
                   onChange={e => e.target.files?.length && setFile(e.target.files[0])}
                 />
               </label>

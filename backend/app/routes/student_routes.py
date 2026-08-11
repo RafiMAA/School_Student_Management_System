@@ -3,11 +3,11 @@ from typing import Optional
 import asyncpg
 
 from app.database import get_db
-from app.auth import get_current_user, require_admin
+from app.auth import get_current_user, require_admin, require_super_admin
 from app.models import (
     StudentCreate, StudentUpdate, StudentResponse, StudentTransfer, StudentGraduate, AlumniCreate, AchievementCreate, AchievementResponse
 )
-from app.cache import cache_invalidate, TOTAL_STUDENTS
+from app.cache import cache_invalidate, TOTAL_ALUMNIS, TOTAL_STUDENTS
 
 router = APIRouter()
 
@@ -168,7 +168,6 @@ async def create_alumni(
     )
 
     cache_invalidate(TOTAL_STUDENTS)
-    from app.cache import TOTAL_ALUMNIS
     cache_invalidate(TOTAL_ALUMNIS)
     
     return _row_to_response(row)
@@ -231,20 +230,51 @@ async def update_student(
 async def delete_student(
     student_id: str,
     db: asyncpg.Pool = Depends(get_db),
-    user: dict = Depends(require_admin),
+    user: dict = Depends(require_super_admin),
 ):
-    result = await db.execute(
-        "UPDATE students SET status = 'Inactive' WHERE id = $1", student_id
-    )
-    if result == "UPDATE 0":
-        raise HTTPException(status_code=404, detail="Student not found")
+    """Permanently delete a student and all dependent records.
 
-    await db.execute(
-        "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
-        "STUDENT_DELETED", {"student_id": student_id}, user.get("teacher_id"),
-    )
+    This operation is deliberately restricted to Super Admin. Attendance,
+    promotion history, and student reports are removed by their ON DELETE
+    CASCADE foreign keys in the same transaction.
+    """
+    async with db.acquire() as conn:
+        async with conn.transaction():
+            student = await conn.fetchrow(
+                "SELECT full_name, registration_number FROM students WHERE id = $1",
+                student_id,
+            )
+            if not student:
+                raise HTTPException(status_code=404, detail="Student not found")
+
+            attendance_count = await conn.fetchval(
+                "SELECT COUNT(*) FROM attendance WHERE student_id = $1", student_id
+            )
+            report_count = await conn.fetchval(
+                "SELECT COUNT(*) FROM student_achievements WHERE student_id = $1", student_id
+            )
+
+            await conn.execute("DELETE FROM students WHERE id = $1", student_id)
+            await conn.execute(
+                "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
+                "STUDENT_PERMANENTLY_DELETED",
+                {
+                    "student_id": student_id,
+                    "name": student["full_name"],
+                    "registration_number": student["registration_number"],
+                    "attendance_records_deleted": attendance_count,
+                    "reports_deleted": report_count,
+                },
+                user.get("teacher_id"),
+            )
+
     cache_invalidate(TOTAL_STUDENTS)
-    return {"message": "Student set to inactive"}
+    cache_invalidate(TOTAL_ALUMNIS)
+    return {
+        "message": "Student permanently deleted",
+        "attendance_records_deleted": attendance_count,
+        "reports_deleted": report_count,
+    }
 
 
 @router.post("/{student_id}/transfer")
