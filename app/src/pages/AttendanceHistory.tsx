@@ -3,11 +3,11 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Search, ChevronLeft, ChevronRight, FileText, Download } from 'lucide-react';
 import { format, parseISO, subMonths, addMonths } from 'date-fns';
-import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useToast } from '@/contexts/ToastContext';
 import api from '@/lib/apiClient';
+import { exportCsv } from '@/lib/csvExport';
 import type { Class } from '@/types';
 
 interface AttendanceReportResponse {
@@ -129,10 +129,7 @@ export default function AttendanceHistory() {
     
     rows.push(summaryRow);
 
-    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
-    XLSX.writeFile(workbook, `Attendance_${selectedClass}_${mode}.xlsx`);
+    exportCsv(`Attendance_${selectedClass}_${mode}.csv`, [headers, ...rows]);
   };
 
   const exportPDF = () => {

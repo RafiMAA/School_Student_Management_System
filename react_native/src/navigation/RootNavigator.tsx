@@ -120,6 +120,20 @@ function ClassesStack() {
   );
 }
 
+function TeachersDirectoryRoute({ navigation, ...props }: any) {
+  const { user } = useAuth();
+  const guardedNavigation = user?.role === 'Teacher'
+    ? {
+        ...navigation,
+        navigate: (route: string, ...args: any[]) => {
+          if (route !== 'TeacherDetail') navigation.navigate(route, ...args);
+        },
+      }
+    : navigation;
+
+  return <TeachersScreen {...props} navigation={guardedNavigation} />;
+}
+
 function MoreStack() {
   return (
     <Stack.Navigator screenOptions={stackOptions}>
@@ -156,7 +170,7 @@ function MoreStack() {
       />
       <Stack.Screen
         name="Teachers"
-        component={TeachersScreen}
+        component={TeachersDirectoryRoute}
         options={{ title: 'Teachers & Staff' }}
       />
       <Stack.Screen
@@ -251,6 +265,9 @@ function MainTabs() {
       <Tabs.Screen
         name="MoreTab"
         component={MoreStack}
+        listeners={({ navigation }) => ({
+          tabPress: () => navigation.navigate('MoreTab', { screen: 'More' }),
+        })}
         options={{ title: 'More' }}
       />
     </Tabs.Navigator>

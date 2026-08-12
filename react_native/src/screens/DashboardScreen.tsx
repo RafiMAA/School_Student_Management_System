@@ -71,9 +71,7 @@ export function DashboardScreen({ navigation }: any) {
       label: 'Teachers',
       value: data.total_teachers,
       icon: 'school-outline',
-      open: () =>
-        isAdmin(user?.role) &&
-        tabs?.navigate('MoreTab', { screen: 'Teachers' }),
+      open: () => tabs?.navigate('MoreTab', { screen: 'Teachers' }),
     },
     {
       label: 'Classes',

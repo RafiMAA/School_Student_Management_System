@@ -2,13 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 import asyncpg
 import io
+import logging
 
 from app.database import get_db
 from app.auth import get_current_user, require_admin
 from app.services.excel_service import create_student_import_template, parse_and_validate_excel
 from app.cache import cache_invalidate, TOTAL_STUDENTS
+from app.security_policies import MAX_UPLOAD_BYTES, validate_upload
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+MAX_IMPORT_ROWS = 5_000
 
 
 def _class_name(row) -> str:
@@ -50,8 +54,11 @@ async def import_students(
     if not file.filename.lower().endswith(('.xlsx', '.csv')):
         raise HTTPException(status_code=400, detail="Only .xlsx and .csv files are accepted")
 
-    content = await file.read()
+    content = await file.read(MAX_UPLOAD_BYTES + 1)
+    validate_upload(content, file.filename)
     result = parse_and_validate_excel(io.BytesIO(content), file.filename)
+    if len(result["rows"]) > MAX_IMPORT_ROWS:
+        raise HTTPException(status_code=413, detail="Import is limited to 5,000 rows")
 
     current_year = await db.fetchrow(
         "SELECT id, year_label FROM academic_years WHERE is_current = TRUE"
@@ -179,9 +186,14 @@ async def import_students(
             imported_classes.add(
                 row.get("class_name") or f"Grade {grade} {medium} Mixed"
             )
-        except Exception as e:
+        except Exception:
+            logger.exception("Failed to import student row %s", row.get("row_num", "?"))
             skipped += 1
-            result["errors"].append({"row": row.get("row_num", "?"), "field": "db", "message": str(e)})
+            result["errors"].append({
+                "row": row.get("row_num", "?"),
+                "field": "db",
+                "message": "Could not save this row",
+            })
 
     await db.execute(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",

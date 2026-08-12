@@ -64,10 +64,10 @@ const navigation = [
   {
     name: 'Administration',
     icon: ShieldCheck,
-    allowedRoles: ['Principal', 'Admin', 'Super Admin'],
+    allowedRoles: ['Principal', 'Admin', 'Teacher', 'Super Admin'],
     children: [
       { name: 'Teachers', href: '/admin/teachers' },
-      { name: 'Audit Logs', href: '/admin/audit-logs' },
+      { name: 'Audit Logs', href: '/admin/audit-logs', allowedRoles: ['Principal', 'Admin', 'Super Admin'] },
     ],
   },
 ];
@@ -168,7 +168,9 @@ export default function Sidebar() {
               </button>
               {isExpanded && (
                 <div className="ml-4 mt-1 space-y-0.5 border-l border-slate-700 pl-3">
-                  {item.children.map((child) => (
+                  {item.children
+                    .filter(child => !('allowedRoles' in child) || (user && Array.isArray(child.allowedRoles) && child.allowedRoles.includes(user.role)))
+                    .map((child) => (
                     <NavLink
                       key={child.name}
                       to={child.href}
@@ -181,7 +183,7 @@ export default function Sidebar() {
                     >
                       {child.name}
                     </NavLink>
-                  ))}
+                    ))}
                 </div>
               )}
             </div>

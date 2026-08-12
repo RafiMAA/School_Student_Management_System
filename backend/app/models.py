@@ -1,7 +1,7 @@
 """Pydantic models for request/response schemas."""
 
 from pydantic import BaseModel, Field
-from typing import Optional, Literal
+from typing import Optional, Literal, Any
 from datetime import date, datetime
 from uuid import UUID
 
@@ -30,11 +30,11 @@ class UserProfile(BaseModel):
     assigned_class: Optional[str] = None
 
 class ProfileUpdateRequest(BaseModel):
-    full_name: Optional[str] = None
-    contact: Optional[str] = None
-    address: Optional[str] = None
+    full_name: Optional[str] = Field(default=None, min_length=1, max_length=150)
+    contact: Optional[str] = Field(default=None, max_length=30)
+    address: Optional[str] = Field(default=None, max_length=500)
     email: Optional[str] = None
-    password: Optional[str] = None
+    password: Optional[str] = Field(default=None, min_length=8, max_length=128)
 
 
 # ============================================================
@@ -167,7 +167,7 @@ class AttendanceRecord(BaseModel):
 class AttendanceBulkSubmit(BaseModel):
     class_id: str
     date: date
-    records: list[AttendanceRecord]
+    records: list[AttendanceRecord] = Field(min_length=1, max_length=500)
 
 class AttendanceSummary(BaseModel):
     total_students: int
@@ -190,6 +190,16 @@ class ClassAttendanceStatus(BaseModel):
     present: int = 0
     absent: int = 0
     percentage: float = 0.0
+
+
+class PushSubscriptionRequest(BaseModel):
+    platform: Literal["expo", "web"]
+    device_key: str = Field(min_length=1, max_length=500)
+    subscription: Optional[dict[str, Any]] = None
+
+
+class PushUnsubscribeRequest(BaseModel):
+    device_key: str = Field(min_length=1, max_length=500)
 
 
 # ============================================================
@@ -238,20 +248,27 @@ class PromotionResult(BaseModel):
 # ============================================================
 
 class TeacherCreate(BaseModel):
-    full_name: str
-    contact: str
-    address: Optional[str] = None
-    email: str
-    password: str
+    full_name: str = Field(min_length=1, max_length=150)
+    contact: str = Field(max_length=30)
+    address: Optional[str] = Field(default=None, max_length=500)
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=8, max_length=128)
     role: Literal["Principal", "Admin", "Teacher", "Super Admin"] = "Teacher"
-    assigned_classes: Optional[list[str]] = None
+    assigned_classes: Optional[list[str]] = Field(default=None, max_length=20)
 
 class TeacherUpdate(BaseModel):
-    full_name: Optional[str] = None
-    contact: Optional[str] = None
-    address: Optional[str] = None
+    full_name: Optional[str] = Field(default=None, min_length=1, max_length=150)
+    contact: Optional[str] = Field(default=None, max_length=30)
+    address: Optional[str] = Field(default=None, max_length=500)
     role: Optional[Literal["Principal", "Admin", "Teacher", "Super Admin"]] = None
-    assigned_classes: Optional[list[str]] = None
+    assigned_classes: Optional[list[str]] = Field(default=None, max_length=20)
+
+class TeacherListResponse(BaseModel):
+    id: str
+    full_name: str
+    contact: str
+    role: str
+    assigned_class: Optional[str] = None
 
 class TeacherResponse(BaseModel):
     id: str
@@ -265,7 +282,7 @@ class TeacherResponse(BaseModel):
     created_at: datetime
 
 class PasswordReset(BaseModel):
-    new_password: str
+    new_password: str = Field(min_length=8, max_length=128)
 
 
 # ============================================================
@@ -302,7 +319,7 @@ class ImportResult(BaseModel):
 # ============================================================
 
 class AchievementCreate(BaseModel):
-    achievement_text: str
+    achievement_text: str = Field(min_length=1, max_length=1_000)
 
 class AchievementResponse(BaseModel):
     id: str

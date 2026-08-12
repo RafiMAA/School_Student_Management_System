@@ -11,6 +11,7 @@ export default function Teachers() {
   const { addToast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const canOpenProfiles = ['Principal', 'Admin', 'Super Admin'].includes(user?.role || '');
   
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
@@ -79,9 +80,9 @@ export default function Teachers() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white">Teachers & Staff</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage school personnel and system access.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{canOpenProfiles ? 'Manage school personnel and system access.' : 'View school personnel and class assignments.'}</p>
         </div>
-        {['Principal', 'Admin'].includes(user?.role || '') && (
+        {canOpenProfiles && (
           <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors active:scale-95">
             <Plus className="w-4 h-4" /> Add Teacher
           </button>
@@ -102,7 +103,11 @@ export default function Teachers() {
               {loading ? (
                 <tr><td colSpan={3} className="text-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto" /></td></tr>
               ) : teachers.map(t => (
-                <tr key={t.id} onClick={() => navigate(`/admin/teachers/${t.id}`)} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors">
+                <tr
+                  key={t.id}
+                  onClick={canOpenProfiles ? () => navigate(`/admin/teachers/${t.id}`) : undefined}
+                  className={canOpenProfiles ? 'hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors' : undefined}
+                >
                   <td className="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white">{t.full_name}</td>
                   <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{t.contact || '-'}</td>
                   <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{t.assigned_class || 'Unassigned'}</td>
@@ -111,7 +116,7 @@ export default function Teachers() {
             </tbody>
           </table>
         </div>
-        {['Principal', 'Admin'].includes(user?.role || '') && (
+        {canOpenProfiles && (
           <div className="bg-slate-900 text-slate-300 p-4 text-sm flex items-start gap-2 border-t border-slate-800">
             <div className="mt-0.5">ℹ️</div>
             <p>Click on a teacher's name to view their profile, manage permissions, or edit details.</p>
@@ -136,7 +141,7 @@ export default function Teachers() {
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Password *</label>
-              <input type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700" required minLength={6} />
+              <input type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700" required minLength={8} maxLength={128} />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Contact Number</label>
@@ -150,13 +155,8 @@ export default function Teachers() {
               <label className="block text-xs font-medium text-slate-500 mb-1">Role *</label>
               <select value={form.role} onChange={e => setForm({...form, role: e.target.value as any})} className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
                 <option value="Teacher">Teacher</option>
-                <option value="Admin">Admin</option>
-                {user?.role === 'Principal' && (
-                  <>
-                    <option value="Super Admin">Super Admin</option>
-                    <option value="Principal">Principal</option>
-                  </>
-                )}
+                {['Principal', 'Super Admin'].includes(user?.role || '') && <option value="Admin">Admin</option>}
+                {user?.role === 'Super Admin' && <option value="Super Admin">Super Admin</option>}
               </select>
             </div>
             <div>

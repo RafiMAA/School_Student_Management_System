@@ -12,7 +12,7 @@ Verification strategy:
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import JWTError, jwt
+import jwt
 import httpx
 import asyncpg
 
@@ -37,14 +37,14 @@ def _try_local_decode(token: str) -> dict | None:
             audience="authenticated",
         )
         return payload
-    except JWTError:
+    except jwt.PyJWTError:
         return None
 
 
 async def _verify_via_supabase_api(token: str) -> dict:
     """Verify a token by calling Supabase's Auth API.
     Works regardless of the signing algorithm (HS256, ES256, etc.).
-    Returns a dict with at least {"sub": "<user-uuid>"}.
+    Returns the identity fields used by the application profile.
     """
     settings = get_settings()
     if not settings.supabase_url or not settings.supabase_anon_key:
@@ -78,7 +78,10 @@ async def _verify_via_supabase_api(token: str) -> dict:
             detail="Invalid token payload",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return {"sub": user_id}
+    return {
+        "sub": user_id,
+        "email": data.get("email") or "",
+    }
 
 
 async def get_current_user(

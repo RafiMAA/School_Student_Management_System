@@ -122,7 +122,7 @@ export default function Dashboard() {
       {/* Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard title="Total Students" value={summary.total_students} icon={Users} onClick={() => navigate('/students')} />
-        <StatCard title="Total Teachers" value={summary.total_teachers} icon={GraduationCap} onClick={() => handleProtectedNavigation('/admin/teachers')} />
+        <StatCard title="Total Teachers" value={summary.total_teachers} icon={GraduationCap} onClick={() => navigate('/admin/teachers')} />
         <StatCard title="Total Classes" value={summary.total_classes} icon={BookOpen} onClick={() => handleProtectedNavigation('/classes')} />
         <StatCard title="Total Alumnis" value={summary?.total_alumnis || 0} icon={Award} onClick={() => navigate('/students/alumni')} />
       </div>

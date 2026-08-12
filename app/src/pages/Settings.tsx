@@ -1,26 +1,52 @@
 import { useEffect, useState } from 'react';
 import { useToast } from '@/contexts/ToastContext';
 import { supabase } from '@/lib/supabase';
-import { Save, Lock, KeyRound, Eye, EyeOff, Download, Smartphone, CheckCircle } from 'lucide-react';
+import { Save, Lock, KeyRound, Eye, EyeOff, Download, Smartphone, CheckCircle, Bell } from 'lucide-react';
 import { canInstallPWA, isRunningAsPWA, promptPWAInstall, subscribeToPWAInstall } from '@/lib/pwaInstall';
+import { setWebPushEnabled, webPushEnabled } from '@/lib/pushNotifications';
 
 export default function Settings() {
   const { addToast } = useToast();
   
   const [loading, setLoading] = useState(false);
   const [passwords, setPasswords] = useState({
+    current_password: '',
     new_password: '',
     confirm_password: ''
   });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [canInstall, setCanInstall] = useState(canInstallPWA());
   const [isInstalled, setIsInstalled] = useState(isRunningAsPWA());
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notificationLoading, setNotificationLoading] = useState(true);
 
   useEffect(() => subscribeToPWAInstall(() => {
     setCanInstall(canInstallPWA());
     setIsInstalled(isRunningAsPWA());
   }), []);
+
+  useEffect(() => {
+    webPushEnabled()
+      .then(setNotificationsEnabled)
+      .finally(() => setNotificationLoading(false));
+  }, []);
+
+  const toggleNotifications = async () => {
+    setNotificationLoading(true);
+    try {
+      const enabled = await setWebPushEnabled(!notificationsEnabled);
+      setNotificationsEnabled(enabled);
+      addToast(enabled ? 'success' : 'info', enabled
+        ? 'Sunday attendance reminders enabled'
+        : 'Attendance reminders disabled');
+    } catch (error: any) {
+      addToast('error', error?.message || 'Could not update notifications');
+    } finally {
+      setNotificationLoading(false);
+    }
+  };
 
   const handleInstall = async () => {
     const outcome = await promptPWAInstall();
@@ -36,23 +62,28 @@ export default function Settings() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!passwords.current_password) {
+      addToast('error', 'Enter your current password');
+      return;
+    }
     if (passwords.new_password !== passwords.confirm_password) {
       addToast('error', 'Passwords do not match');
       return;
     }
-    if (passwords.new_password.length < 6) {
-      addToast('error', 'Password must be at least 6 characters');
+    if (passwords.new_password.length < 8) {
+      addToast('error', 'Password must be at least 8 characters');
       return;
     }
     
     setLoading(true);
     try {
       const { error } = await supabase.auth.updateUser({
+        current_password: passwords.current_password,
         password: passwords.new_password,
       });
       if (error) throw error;
       addToast('success', 'Password updated successfully');
-      setPasswords({ new_password: '', confirm_password: '' });
+      setPasswords({ current_password: '', new_password: '', confirm_password: '' });
     } catch (err: any) {
       addToast('error', err?.message || 'Failed to update password');
     } finally {
@@ -91,6 +122,31 @@ export default function Settings() {
 
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+            <Bell className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Sunday Attendance Reminders</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">8:30 AM · 10:25 assigned teacher · 10:40 administrators</p>
+          </div>
+        </div>
+        <div className="p-6 flex items-center justify-between gap-4">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Conditional reminders are sent only while attendance is still missing.
+          </p>
+          <button
+            type="button"
+            disabled={notificationLoading}
+            onClick={toggleNotifications}
+            className={`shrink-0 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50 ${notificationsEnabled ? 'bg-slate-600 hover:bg-slate-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+          >
+            {notificationLoading ? 'Checking…' : notificationsEnabled ? 'Disable' : 'Enable'}
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
             <Lock className="w-5 h-5" />
           </div>
@@ -103,6 +159,33 @@ export default function Settings() {
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           <div className="space-y-4 max-w-md">
             <div>
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Current Password</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <KeyRound className="w-4 h-4 text-slate-400" />
+                </div>
+                <input
+                  type={showCurrentPassword ? "text" : "password"}
+                  name="current_password"
+                  value={passwords.current_password}
+                  onChange={handleChange}
+                  required
+                  autoComplete="current-password"
+                  placeholder="Enter current password"
+                  className="w-full pl-9 pr-10 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                  aria-label={showCurrentPassword ? 'Hide current password' : 'Show current password'}
+                >
+                  {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div>
               <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">New Password</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -114,6 +197,7 @@ export default function Settings() {
                   value={passwords.new_password}
                   onChange={handleChange}
                   required
+                  autoComplete="new-password"
                   placeholder="Enter new password"
                   className="w-full pl-9 pr-10 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                 />
@@ -139,6 +223,7 @@ export default function Settings() {
                   value={passwords.confirm_password}
                   onChange={handleChange}
                   required
+                  autoComplete="new-password"
                   placeholder="Confirm new password"
                   className="w-full pl-9 pr-10 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                 />
@@ -156,7 +241,7 @@ export default function Settings() {
           <div className="pt-4 flex justify-start">
             <button
               type="submit"
-              disabled={loading || !passwords.new_password || !passwords.confirm_password}
+              disabled={loading || !passwords.current_password || !passwords.new_password || !passwords.confirm_password}
               className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white font-medium rounded-lg transition-colors"
             >
               <Save className="w-4 h-4" />

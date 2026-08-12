@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useState, useEffect, type ReactNode } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { createContext, useCallback, useContext, useState, useEffect, useRef, type ReactNode } from 'react';
+import { Navigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import {
   signInWithPassword,
@@ -8,7 +8,12 @@ import {
   type AppUser,
   type UserRole,
 } from '@/lib/auth.service';
-import { setAccessToken } from '@/lib/apiClient';
+import {
+  SESSION_EXPIRED_EVENT,
+  SESSION_EXPIRED_NOTICE_KEY,
+  setAccessToken,
+} from '@/lib/apiClient';
+import { isRunningAsPWA } from '@/lib/pwaInstall';
 import StartupScreen from '@/components/StartupScreen';
 
 interface AuthContextType {
@@ -31,23 +36,44 @@ const AuthContext = createContext<AuthContextType>({
 
 const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
 const LAST_ACTIVITY_KEY = 'ahadiya-last-activity';
-const TIMEOUT_NOTICE_KEY = 'ahadiya-session-timeout';
+const TIMEOUT_NOTICE_KEY = SESSION_EXPIRED_NOTICE_KEY;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const userRef = useRef<AppUser | null>(null);
+  const manualLogoutRef = useRef(false);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   const logout = useCallback(() => {
+    manualLogoutRef.current = true;
     localStorage.removeItem(LAST_ACTIVITY_KEY);
-    void supabase.auth.signOut();
     setAccessToken(null);
     setUser(null);
+    void supabase.auth.signOut({ scope: 'local' }).finally(() => {
+      manualLogoutRef.current = false;
+    });
+  }, []);
+
+  const expireSession = useCallback(() => {
+    sessionStorage.setItem(TIMEOUT_NOTICE_KEY, 'true');
+    localStorage.removeItem(LAST_ACTIVITY_KEY);
+    setAccessToken(null);
+    setUser(null);
+    void supabase.auth.signOut({ scope: 'local' });
   }, []);
 
   useEffect(() => {
     // 1. Restore session on page load
     const lastActivity = Number(localStorage.getItem(LAST_ACTIVITY_KEY));
-    const sessionAlreadyIdle = lastActivity > 0 && Date.now() - lastActivity >= IDLE_TIMEOUT_MS;
+    const installedApp = isRunningAsPWA();
+    const sessionAlreadyIdle = !installedApp && lastActivity > 0 && Date.now() - lastActivity >= IDLE_TIMEOUT_MS;
+
+    // Installed apps should behave like apps, not short-lived browser sessions.
+    if (installedApp) localStorage.removeItem(LAST_ACTIVITY_KEY);
 
     (sessionAlreadyIdle
       ? supabase.auth.signOut().then(() => {
@@ -59,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       : restoreUser())
       .then((profile) => {
         setUser(profile);
-        if (profile && !lastActivity) {
+        if (profile && !installedApp && !lastActivity) {
           localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
         }
       })
@@ -76,6 +102,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAccessToken(session?.access_token ?? null);
 
       if (event === 'SIGNED_OUT') {
+        if (userRef.current && !manualLogoutRef.current) {
+          sessionStorage.setItem(TIMEOUT_NOTICE_KEY, 'true');
+        }
         setUser(null);
         return;
       }
@@ -98,11 +127,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    const handleExpiredSession = () => {
+      localStorage.removeItem(LAST_ACTIVITY_KEY);
+      setAccessToken(null);
+      setUser(null);
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleExpiredSession);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener(SESSION_EXPIRED_EVENT, handleExpiredSession);
+    };
   }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || isRunningAsPWA()) return;
 
     let timeoutId: number | undefined;
     let lastWrite = 0;
@@ -115,8 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const remaining = IDLE_TIMEOUT_MS - (Date.now() - lastActivity);
 
       if (remaining <= 0) {
-        sessionStorage.setItem(TIMEOUT_NOTICE_KEY, 'true');
-        logout();
+        expireSession();
         return;
       }
       timeoutId = window.setTimeout(expireIfIdle, remaining);
@@ -160,11 +198,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('focus', expireIfIdle);
       window.removeEventListener('storage', syncAcrossTabs);
     };
-  }, [logout, user]);
+  }, [expireSession, user]);
 
   const login = async (email: string, password: string, captchaToken?: string) => {
     const profile = await signInWithPassword(email, password, captchaToken);
-    localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
+    if (!isRunningAsPWA()) {
+      localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
+    }
     setUser(profile);
   };
 
@@ -205,19 +245,12 @@ export const useAuth = () => useContext(AuthContext);
 /** Wrapper component that redirects unauthenticated users to /login */
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      navigate('/login', { replace: true });
-    }
-  }, [isLoading, isAuthenticated, navigate]);
 
   if (isLoading) {
     return <StartupScreen />;
   }
 
-  return isAuthenticated ? <>{children}</> : null;
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
 export const isAdmin = (role?: UserRole | string) =>

@@ -16,11 +16,20 @@ class Settings(BaseSettings):
     supabase_anon_key: str = ""
     supabase_service_role_key: str = ""
 
+    # Push notifications and protected scheduler calls
+    notification_cron_secret: str = ""
+    vapid_private_key: str = ""
+    vapid_claim_email: str = ""
+
     # PDF
     pdf_school_name: str = "Ahadiya School"
 
     # CORS
-    cors_origins: str = "http://localhost:3000"
+    cors_origins: str = "http://localhost:3000,http://localhost:5173,http://localhost:19006,https://ahadiya-student-management-system.vercel.app"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
     class Config:
         env_file = ".env"

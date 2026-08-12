@@ -24,7 +24,7 @@ export default function Login() {
   useEffect(() => {
     if (sessionStorage.getItem('ahadiya-session-timeout') === 'true') {
       sessionStorage.removeItem('ahadiya-session-timeout');
-      addToast('info', 'You were logged out after 1 hour of inactivity.');
+      addToast('info', 'Your last session expired.');
     }
   }, [addToast]);
 

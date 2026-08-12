@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { Search, Clock, User, ShieldAlert, Download } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { format, parseISO } from 'date-fns';
-import * as XLSX from 'xlsx';
 import api from '@/lib/apiClient';
+import { exportCsv } from '@/lib/csvExport';
 
 interface AuditLog {
   id: string;
@@ -72,10 +72,7 @@ export default function AuditLogs() {
         Object.keys(log.details).length > 0 ? JSON.stringify(log.details) : 'No additional details'
       ]);
 
-      const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Audit Logs");
-      XLSX.writeFile(workbook, `Audit_Logs_${format(new Date(), 'yyyyMMdd_HHmmss')}.xlsx`);
+      exportCsv(`Audit_Logs_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`, [headers, ...rows]);
       
       addToast('success', 'Audit logs exported successfully');
     } catch (err) {
@@ -125,7 +122,7 @@ export default function AuditLogs() {
             onClick={handleExportExcel}
             className="flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-colors"
           >
-            <Download className="w-4 h-4 text-emerald-500" /> Export Excel
+            <Download className="w-4 h-4 text-emerald-500" /> Export CSV
           </button>
         </div>
       </div>

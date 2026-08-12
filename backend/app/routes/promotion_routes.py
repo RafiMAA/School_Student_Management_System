@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 import asyncpg
+import logging
 
 from app.database import get_db
 from app.auth import get_current_user, require_super_admin
@@ -7,6 +8,7 @@ from app.models import PromotionRuleCreate, PromotionRuleUpdate, PromotionRuleRe
 from app.cache import cache_invalidate, CURRENT_YEAR
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 async def _get_class_name(db, class_id):
@@ -358,8 +360,9 @@ async def execute_promotion(
                                 s["id"], s["current_class_id"], final_target_id, year_id, user.get("teacher_id"),
                             )
                             promoted += 1
-                except Exception as e:
-                    errors.append(f"Error promoting {s['full_name']}: {str(e)}")
+                except Exception:
+                    logger.exception("Failed to promote student %s", s["id"])
+                    errors.append(f"Could not promote {s['full_name']}")
 
             # Rollover the academic year
             from datetime import date
@@ -444,4 +447,3 @@ async def undo_promotion(
     )
 
     return {"message": f"Successfully undid promotion. Reverted {reverted} students."}
-

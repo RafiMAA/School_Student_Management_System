@@ -4,9 +4,85 @@ import { Avatar, Button, Card, Field, LoadingView, PageHeader, Row, Screen, Segm
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { api, ApiError, API_BASE_URL } from '../services/api';
+import {
+  isAttendanceReminderEnabled,
+  setAttendanceReminderEnabled,
+} from '../services/attendanceReminder';
 import { supabase } from '../services/supabase';
 
-export function ProfileScreen() { const { colors } = useTheme(); const { user, refreshUser } = useAuth(); const [form, setForm] = useState({ full_name: '', email: '', contact: '', address: '', assigned_class: '' }); const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false); useEffect(() => { api.get<any>('/auth/me').then(x => setForm({ full_name: x.full_name || '', email: x.email || '', contact: x.contact || '', address: x.address || '', assigned_class: x.assigned_class || '' })).catch(e => Alert.alert('Could not load profile', (e as ApiError).message)).finally(() => setLoading(false)); }, []); const save = async () => { if (!form.full_name) return Alert.alert('Missing details', 'Name is required.'); setBusy(true); try { await api.put('/auth/profile', { full_name: form.full_name, contact: form.contact, address: form.address }); await refreshUser(); Alert.alert('Saved', 'Your profile has been updated.'); } catch (e) { Alert.alert('Could not save', (e as ApiError).message); } finally { setBusy(false); } }; if (loading) return <LoadingView fullScreen />; return <Screen><View style={{ alignItems: 'center', gap: 6 }}><Avatar name={form.full_name || 'User'} size={78} /><Text style={{ color: colors.text, fontSize: 20, fontWeight: '900', marginTop: 4 }}>{form.full_name}</Text><Text style={{ color: colors.primary, fontWeight: '700', fontSize: 12 }}>{user?.role}</Text></View>{form.assigned_class ? <Card><Row icon="library-outline" title="Assigned class" subtitle={form.assigned_class} /></Card> : null}<Card style={{ gap: 14 }}><Field label="Full name" value={form.full_name} onChangeText={v => setForm(x => ({ ...x, full_name: v }))} /><Field label="Email Address" autoCapitalize="none" value={form.email} editable={false} style={{ opacity: 0.7 }} /><Field label="Contact number" keyboardType="phone-pad" value={form.contact} onChangeText={v => setForm(x => ({ ...x, contact: v }))} /><Field label="Address" multiline value={form.address} onChangeText={v => setForm(x => ({ ...x, address: v }))} /></Card><Button title="Save Profile" icon="save-outline" loading={busy} onPress={save} /></Screen>; }
+export function ProfileScreen() { const { colors } = useTheme(); const { user, refreshUser } = useAuth(); const [form, setForm] = useState({ full_name: '', email: '', contact: '', address: '', assigned_class: '' }); const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false); useEffect(() => { api.get<any>('/auth/me').then(x => setForm({ full_name: x.full_name || '', email: x.email || user?.email || '', contact: x.contact || '', address: x.address || '', assigned_class: x.assigned_class || '' })).catch(e => Alert.alert('Could not load profile', (e as ApiError).message)).finally(() => setLoading(false)); }, [user?.email]); const save = async () => { if (!form.full_name) return Alert.alert('Missing details', 'Name is required.'); setBusy(true); try { await api.put('/auth/profile', { full_name: form.full_name, contact: form.contact, address: form.address }); await refreshUser(); Alert.alert('Saved', 'Your profile has been updated.'); } catch (e) { Alert.alert('Could not save', (e as ApiError).message); } finally { setBusy(false); } }; if (loading) return <LoadingView fullScreen />; return <Screen><View style={{ alignItems: 'center', gap: 6 }}><Avatar name={form.full_name || 'User'} size={78} /><Text style={{ color: colors.text, fontSize: 20, fontWeight: '900', marginTop: 4 }}>{form.full_name}</Text><Text style={{ color: colors.primary, fontWeight: '700', fontSize: 12 }}>{user?.role}</Text></View>{form.assigned_class ? <Card><Row icon="library-outline" title="Assigned class" subtitle={form.assigned_class} /></Card> : null}<Card style={{ gap: 14 }}><Field label="Full name" value={form.full_name} onChangeText={v => setForm(x => ({ ...x, full_name: v }))} /><Field label="Email Address" autoCapitalize="none" value={form.email} editable={false} style={{ opacity: 0.7 }} /><Field label="Contact number" keyboardType="phone-pad" value={form.contact} onChangeText={v => setForm(x => ({ ...x, contact: v }))} /><Field label="Address" multiline value={form.address} onChangeText={v => setForm(x => ({ ...x, address: v }))} /></Card><Button title="Save Profile" icon="save-outline" loading={busy} onPress={save} /></Screen>; }
 
-export function SettingsScreen() { const { colors, mode, setMode } = useTheme(); const { logout } = useAuth(); const [passwords, setPasswords] = useState({ newPassword: '', confirm: '' }); const [notifications, setNotifications] = useState(true); const [busy, setBusy] = useState(false); const changePassword = async () => { if (passwords.newPassword.length < 6) return Alert.alert('Weak password', 'Use at least 6 characters.'); if (passwords.newPassword !== passwords.confirm) return Alert.alert('Passwords do not match'); setBusy(true); try { const { error } = await supabase.auth.updateUser({ password: passwords.newPassword }); if (error) throw error; setPasswords({ newPassword: '', confirm: '' }); Alert.alert('Password changed'); } catch (e: any) { Alert.alert('Could not change password', e?.message || 'Please try again.'); } finally { setBusy(false); } }; const signOut = () => Alert.alert('Sign out?', undefined, [{ text: 'Cancel', style: 'cancel' }, { text: 'Sign Out', style: 'destructive', onPress: logout }]); return <Screen><PageHeader title="Settings" subtitle="Appearance, security and app details" /><Card style={{ gap: 13 }}><Text style={{ color: colors.text, fontWeight: '800' }}>Appearance</Text><Segmented value={mode} options={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }, { value: 'system', label: 'System' }]} onChange={setMode} /></Card><Card><Row icon="notifications-outline" title="Notifications" subtitle="Attendance and administration reminders" right={<Switch value={notifications} onValueChange={setNotifications} trackColor={{ true: colors.primary }} />} /><Row icon="server-outline" title="API Server" subtitle={API_BASE_URL} /></Card><Card style={{ gap: 13 }}><Text style={{ color: colors.text, fontWeight: '800' }}>Change Password</Text><Field label="New password" secureTextEntry value={passwords.newPassword} onChangeText={v => setPasswords(x => ({ ...x, newPassword: v }))} /><Field label="Confirm password" secureTextEntry value={passwords.confirm} onChangeText={v => setPasswords(x => ({ ...x, confirm: v }))} /><Button title="Update Password" variant="outline" icon="key-outline" loading={busy} onPress={changePassword} /></Card><Card><Row icon="information-circle-outline" title="About" subtitle="Al-Meera Ahadiya Management System · Mobile 1.0.0" /></Card><Button title="Sign Out" icon="log-out-outline" variant="danger" onPress={signOut} /></Screen>; }
+export function SettingsScreen() {
+  const { colors, mode, setMode } = useTheme();
+  const { logout } = useAuth();
+  const [passwords, setPasswords] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirm: '',
+  });
+  const [notifications, setNotifications] = useState(false);
+  const [notificationBusy, setNotificationBusy] = useState(true);
+  const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    isAttendanceReminderEnabled()
+      .then(setNotifications)
+      .catch(() => setNotifications(false))
+      .finally(() => setNotificationBusy(false));
+  }, []);
+
+  const toggleAttendanceReminder = async (enabled: boolean) => {
+    setNotificationBusy(true);
+    try {
+      const active = await setAttendanceReminderEnabled(enabled);
+      setNotifications(active);
+      if (enabled && !active) {
+        Alert.alert(
+          'Notification permission needed',
+          'Allow notifications in your device settings to receive Sunday attendance reminders.',
+        );
+      } else if (active) {
+        Alert.alert('Reminders enabled', 'You can now receive the Sunday 8:30 AM reminder and conditional follow-ups.');
+      }
+    } catch (error: any) {
+      setNotifications(false);
+      Alert.alert('Could not update reminder', error?.message || 'Please try again.');
+    } finally {
+      setNotificationBusy(false);
+    }
+  };
+
+  const changePassword = async () => {
+    if (!passwords.currentPassword) {
+      return Alert.alert('Current password required', 'Enter your current password.');
+    }
+    if (passwords.newPassword.length < 8) {
+      return Alert.alert('Weak password', 'Use at least 8 characters.');
+    }
+    if (passwords.newPassword !== passwords.confirm) {
+      return Alert.alert('Passwords do not match');
+    }
+
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        current_password: passwords.currentPassword,
+        password: passwords.newPassword,
+      });
+      if (error) throw error;
+      setPasswords({ currentPassword: '', newPassword: '', confirm: '' });
+      Alert.alert('Password changed');
+    } catch (e: any) {
+      Alert.alert('Could not change password', e?.message || 'Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const signOut = () => Alert.alert('Sign out?', undefined, [
+    { text: 'Cancel', style: 'cancel' },
+    { text: 'Sign Out', style: 'destructive', onPress: logout },
+  ]);
+
+  return <Screen><PageHeader title="Settings" subtitle="Appearance, security and app details" /><Card style={{ gap: 13 }}><Text style={{ color: colors.text, fontWeight: '800' }}>Appearance</Text><Segmented value={mode} options={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }, { value: 'system', label: 'System' }]} onChange={setMode} /></Card><Card><Row icon="notifications-outline" title="Sunday attendance reminders" subtitle="8:30 AM · 10:25 teacher · 10:40 admin" right={<Switch value={notifications} disabled={notificationBusy} onValueChange={toggleAttendanceReminder} trackColor={{ true: colors.primary }} />} /><Row icon="server-outline" title="API Server" subtitle={API_BASE_URL} /></Card><Card style={{ gap: 13 }}><Text style={{ color: colors.text, fontWeight: '800' }}>Change Password</Text><Field label="Current password" secureTextEntry textContentType="password" autoComplete="current-password" value={passwords.currentPassword} onChangeText={v => setPasswords(x => ({ ...x, currentPassword: v }))} /><Field label="New password" secureTextEntry textContentType="newPassword" autoComplete="new-password" value={passwords.newPassword} onChangeText={v => setPasswords(x => ({ ...x, newPassword: v }))} /><Field label="Confirm password" secureTextEntry textContentType="newPassword" autoComplete="new-password" value={passwords.confirm} onChangeText={v => setPasswords(x => ({ ...x, confirm: v }))} /><Button title="Update Password" variant="outline" icon="key-outline" loading={busy} disabled={!passwords.currentPassword || !passwords.newPassword || !passwords.confirm} onPress={changePassword} /></Card><Card><Row icon="information-circle-outline" title="About" subtitle="Al-Meera Ahadiya Management System · Mobile 1.0.0" /></Card><Button title="Sign Out" icon="log-out-outline" variant="danger" onPress={signOut} /></Screen>;
+}

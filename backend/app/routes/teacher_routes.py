@@ -1,13 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional
 import asyncpg
+import logging
 
 from app.database import get_db
-from app.auth import require_admin
-from app.models import TeacherCreate, TeacherUpdate, TeacherResponse, PasswordReset
+from app.auth import require_admin, require_any_auth
+from app.models import TeacherCreate, TeacherUpdate, TeacherListResponse, TeacherResponse, PasswordReset
 from app.cache import cache_invalidate, TOTAL_TEACHERS
+from app.security_policies import can_manage_role
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+def _require_role_management(actor_role: str, target_role: str) -> None:
+    if not can_manage_role(actor_role, target_role):
+        raise HTTPException(
+            status_code=403,
+            detail="You cannot manage an account with this role.",
+        )
 
 
 def _row_to_response(r, assigned_class=None, assigned_class_ids=None) -> TeacherResponse:
@@ -20,11 +30,11 @@ def _row_to_response(r, assigned_class=None, assigned_class_ids=None) -> Teacher
     )
 
 
-@router.get("", response_model=list[TeacherResponse])
+@router.get("", response_model=list[TeacherListResponse])
 async def list_teachers(
     search: Optional[str] = None,
     db: asyncpg.Pool = Depends(get_db),
-    _user: dict = Depends(require_admin),
+    _user: dict = Depends(require_any_auth),
 ):
     from app.cache import get_current_year_id
     year_id = await get_current_year_id(db)
@@ -90,8 +100,7 @@ async def create_teacher(
     db: asyncpg.Pool = Depends(get_db),
     user: dict = Depends(require_admin),
 ):
-    if body.role == "Principal":
-        raise HTTPException(status_code=403, detail="Cannot create a Principal account")
+    _require_role_management(user["role"], body.role)
 
     existing = await db.fetchrow("SELECT id FROM teachers WHERE username = $1", body.email)
     if existing:
@@ -106,34 +115,44 @@ async def create_teacher(
             "user_metadata": {"full_name": body.full_name}
         })
         auth_user_id = auth_response.user.id
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to create auth user: {str(e)}")
+    except Exception:
+        logger.exception("Supabase failed to create a teacher auth user")
+        raise HTTPException(status_code=400, detail="Failed to create login account")
 
-    async with db.acquire() as conn:
-        async with conn.transaction():
-            # Insert into teachers
-            row = await conn.fetchrow(
-                """INSERT INTO teachers (full_name, contact, address, username, password_hash, role)
-                   VALUES ($1, $2, $3, $4, $5, $6::teacher_role) RETURNING *""",
-                body.full_name, body.contact, body.address, body.email, 'supabase-managed', body.role,
-            )
-            
-            # Insert into admin_users
-            await conn.execute(
-                """INSERT INTO admin_users (id, full_name, role, teacher_id, is_active)
-                   VALUES ($1, $2, $3, $4, TRUE)""",
-                auth_user_id, body.full_name, body.role, row["id"]
-            )
-
-            if body.assigned_classes:
-                await conn.execute(
-                    "UPDATE classes SET teacher_id = $1 WHERE id = ANY($2::uuid[]) AND academic_year_id = (SELECT id FROM academic_years WHERE is_current = TRUE)",
-                    row["id"], body.assigned_classes
+    try:
+        async with db.acquire() as conn:
+            async with conn.transaction():
+                # Insert into teachers
+                row = await conn.fetchrow(
+                    """INSERT INTO teachers (full_name, contact, address, username, password_hash, role)
+                       VALUES ($1, $2, $3, $4, $5, $6::teacher_role) RETURNING *""",
+                    body.full_name, body.contact, body.address, body.email,
+                    "supabase-managed", body.role,
                 )
-            await conn.execute(
-                "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
-                "TEACHER_ADDED", {"name": body.full_name, "email": body.email}, user.get("teacher_id"),
-            )
+            
+                # Insert into admin_users
+                await conn.execute(
+                    """INSERT INTO admin_users (id, full_name, role, teacher_id, is_active)
+                       VALUES ($1, $2, $3, $4, TRUE)""",
+                    auth_user_id, body.full_name, body.role, row["id"],
+                )
+
+                if body.assigned_classes:
+                    await conn.execute(
+                        "UPDATE classes SET teacher_id = $1 WHERE id = ANY($2::uuid[]) AND academic_year_id = (SELECT id FROM academic_years WHERE is_current = TRUE)",
+                        row["id"], body.assigned_classes,
+                    )
+                await conn.execute(
+                    "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
+                    "TEACHER_ADDED", {"name": body.full_name, "email": body.email}, user.get("teacher_id"),
+                )
+    except Exception:
+        # Avoid leaving a working login behind when the local transaction fails.
+        try:
+            get_supabase_admin().auth.admin.delete_user(str(auth_user_id))
+        except Exception:
+            logger.exception("Failed to roll back orphaned Supabase auth user %s", auth_user_id)
+        raise
 
     cache_invalidate(TOTAL_TEACHERS)
     return _row_to_response(row)
@@ -154,22 +173,26 @@ async def update_teacher(
     async with db.acquire() as conn:
         async with conn.transaction():
             target_user = await conn.fetchrow(
-                "SELECT role, username FROM teachers WHERE id = $1 FOR UPDATE",
+                """SELECT t.role, t.username,
+                          COALESCE(au.role, t.role::text) AS authorization_role
+                   FROM teachers t
+                   LEFT JOIN admin_users au ON au.teacher_id = t.id
+                   WHERE t.id = $1
+                   FOR UPDATE OF t""",
                 teacher_id,
             )
             if not target_user:
                 raise HTTPException(status_code=404, detail="Teacher not found")
 
+            _require_role_management(user["role"], target_user["authorization_role"])
+
             updates, params, idx = [], [], 1
             for field, value in update_data.items():
                 if value is not None:
                     if field == "role":
-                        if target_user["role"] == "Principal":
-                            raise HTTPException(status_code=403, detail="Cannot modify the Principal's role")
                         if target_user["username"] == "rafimaa.23":
                             raise HTTPException(status_code=403, detail="Cannot modify Abdul Rafi's role")
-                        if value == "Principal":
-                            raise HTTPException(status_code=403, detail="Cannot assign the Principal role")
+                        _require_role_management(user["role"], value)
                         updates.append(f"{field} = ${idx}::teacher_role")
                     else:
                         updates.append(f"{field} = ${idx}")
@@ -224,12 +247,18 @@ async def delete_teacher(
     db: asyncpg.Pool = Depends(get_db),
     user: dict = Depends(require_admin),
 ):
-    target_user = await db.fetchrow("SELECT role, username FROM teachers WHERE id = $1", teacher_id)
+    target_user = await db.fetchrow(
+        """SELECT t.role, t.username,
+                  COALESCE(au.role, t.role::text) AS authorization_role
+           FROM teachers t
+           LEFT JOIN admin_users au ON au.teacher_id = t.id
+           WHERE t.id = $1""",
+        teacher_id,
+    )
     if not target_user:
         raise HTTPException(status_code=404, detail="Teacher not found")
-        
-    if target_user["role"] == "Principal":
-        raise HTTPException(status_code=403, detail="Cannot delete the Principal account")
+
+    _require_role_management(user["role"], target_user["authorization_role"])
     if target_user["username"] == "rafimaa.23":
         raise HTTPException(status_code=403, detail="Cannot delete Abdul Rafi account")
 
@@ -285,9 +314,9 @@ async def delete_teacher(
         try:
             supabase = get_supabase_admin()
             supabase.auth.admin.delete_user(str(admin_user["id"]))
-        except Exception as e:
+        except Exception:
             # We already deleted the DB rows, so log the auth error but don't fail the request completely
-            print(f"Warning: Failed to delete auth user {admin_user['id']}: {str(e)}")
+            logger.exception("Failed to delete Supabase auth user %s", admin_user["id"])
 
     cache_invalidate(TOTAL_TEACHERS)
     return {"message": "Teacher deleted successfully"}
@@ -299,15 +328,25 @@ async def reset_password(
     db: asyncpg.Pool = Depends(get_db),
     user: dict = Depends(require_admin),
 ):
-    admin_user = await db.fetchrow("SELECT id FROM admin_users WHERE teacher_id = $1", teacher_id)
-    if not admin_user:
+    target_user = await db.fetchrow(
+        """SELECT au.id, au.role
+           FROM admin_users au
+           WHERE au.teacher_id = $1""",
+        teacher_id,
+    )
+    if not target_user:
         raise HTTPException(status_code=404, detail="Cannot reset password: Teacher does not have a linked login account.")
+
+    _require_role_management(user["role"], target_user["role"])
+
+    admin_user = target_user
 
     try:
         supabase = get_supabase_admin()
         supabase.auth.admin.update_user_by_id(str(admin_user["id"]), {"password": body.new_password})
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to reset password: {str(e)}")
+    except Exception:
+        logger.exception("Supabase failed to reset teacher password")
+        raise HTTPException(status_code=400, detail="Failed to reset password")
 
     await db.execute(
         "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",

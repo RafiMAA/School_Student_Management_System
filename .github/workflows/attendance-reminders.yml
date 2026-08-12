@@ -1,0 +1,36 @@
+name: Attendance reminders
+
+on:
+  schedule:
+    # Sri Lanka is UTC+5:30. These are Sunday 08:30, 10:25 and 10:40.
+    - cron: '0 3 * * 0'
+    - cron: '55 4 * * 0'
+    - cron: '10 5 * * 0'
+  workflow_dispatch:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Select reminder phase
+        id: phase
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] || [ "$SCHEDULE" = "0 3 * * 0" ]; then
+            echo "value=start" >> "$GITHUB_OUTPUT"
+          elif [ "$SCHEDULE" = "55 4 * * 0" ]; then
+            echo "value=teacher_missing" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=admin_missing" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Send reminders
+        env:
+          API_URL: ${{ secrets.AHADIYA_API_URL }}
+          CRON_SECRET: ${{ secrets.NOTIFICATION_CRON_SECRET }}
+          PHASE: ${{ steps.phase.outputs.value }}
+        run: |
+          curl --fail-with-body --retry 3 --retry-all-errors \
+            -X POST "$API_URL/api/notifications/attendance-reminders/$PHASE" \
+            -H "X-Cron-Secret: $CRON_SECRET"

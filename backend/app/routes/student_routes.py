@@ -351,7 +351,7 @@ async def list_achievements(
     for r in rows:
         can_delete = (
             str(r["academic_year_id"]) == str(current_year_id)
-            and (str(r["created_by"]) == user.get("teacher_id") or user["role"] in ("Principal", "Admin"))
+            and (str(r["created_by"]) == user.get("teacher_id") or user["role"] in ("Principal", "Admin", "Super Admin"))
         )
         results.append(AchievementResponse(
             id=str(r["id"]),
@@ -433,7 +433,7 @@ async def delete_achievement(
         raise HTTPException(status_code=403, detail="Cannot delete achievements from past academic years")
 
     # Check permission: author or admin
-    if str(row["created_by"]) != user.get("teacher_id") and user["role"] not in ("Principal", "Admin"):
+    if str(row["created_by"]) != user.get("teacher_id") and user["role"] not in ("Principal", "Admin", "Super Admin"):
         raise HTTPException(status_code=403, detail="You can only delete your own achievements")
 
     await db.execute("DELETE FROM student_achievements WHERE id = $1", achievement_id)

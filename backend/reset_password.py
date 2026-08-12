@@ -1,12 +1,14 @@
-"""One-off script to reset teacher passwords to proper bcrypt hashes."""
+"""One-off legacy password-hash repair tool.
+
+Database credentials must come from the environment and the replacement
+password is entered interactively so neither value is stored in source code.
+"""
 import asyncio
+import getpass
+import os
+
 import asyncpg
 import bcrypt
-
-# ---  CONFIG  ---
-DB_URL = "postgresql://postgres.ygeltuonvxnsrwnvbtvj:20031411Zearne66%40@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"
-NEW_PASSWORD = "admin123"  # <-- change this to whatever you want
-# ----------------
 
 
 def hash_pw(password: str) -> str:
@@ -14,14 +16,23 @@ def hash_pw(password: str) -> str:
 
 
 async def main():
-    conn = await asyncpg.connect(DB_URL)
+    db_url = os.environ.get("SUPABASE_DB_URL")
+    if not db_url:
+        raise SystemExit("SUPABASE_DB_URL must be set in the environment.")
+
+    new_password = getpass.getpass("Replacement password: ")
+    confirmation = getpass.getpass("Confirm replacement password: ")
+    if new_password != confirmation:
+        raise SystemExit("Passwords do not match.")
+    if len(new_password) < 12:
+        raise SystemExit("Use a password with at least 12 characters.")
+
+    conn = await asyncpg.connect(db_url)
 
     rows = await conn.fetch("SELECT id, username, password_hash FROM teachers")
     print(f"\n--- Found {len(rows)} teachers ---")
 
-    new_hash = hash_pw(NEW_PASSWORD)
-    print(f"Generated new bcrypt hash: {new_hash}")
-    print(f"Hash length: {len(new_hash)} (should be 60)\n")
+    new_hash = hash_pw(new_password)
 
     for r in rows:
         ph = r["password_hash"] or "(NULL)"
@@ -33,10 +44,10 @@ async def main():
                 "UPDATE teachers SET password_hash = $1 WHERE id = $2",
                 new_hash, r["id"],
             )
-            print(f"    ✅ Fixed! New password: '{NEW_PASSWORD}'")
+            print("    Fixed invalid password hash.")
 
     await conn.close()
-    print(f"\nDone! You can now login with password: '{NEW_PASSWORD}'")
+    print("\nDone. The replacement password was not written to logs.")
 
 
 if __name__ == "__main__":

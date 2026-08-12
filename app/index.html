@@ -11,15 +11,7 @@
     <meta name="apple-mobile-web-app-title" content="Al-Meera Ahadiya" />
     <link rel="icon" href="/ahadiya-logo-black.png" type="image/png" />
     <link rel="apple-touch-icon" href="/ahadiya-pwa-icon-192.png" />
-    <script>
-      (() => {
-        const saved = localStorage.getItem('ahadiya-theme-mode') || 'system';
-        const dark = saved === 'dark' || (saved === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
-        document.documentElement.classList.toggle('dark', dark);
-        document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
-        document.querySelector('#theme-color-meta').setAttribute('content', dark ? '#06101f' : '#f8fafc');
-      })();
-    </script>
+    <script src="/theme-init.js"></script>
     <style>
       html, body, #root { min-height: 100%; margin: 0; }
       #pwa-startup {

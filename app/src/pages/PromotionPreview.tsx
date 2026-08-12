@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Play, Download, AlertTriangle, CheckCircle2, FileText, RotateCcw } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
-import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useToast } from '@/contexts/ToastContext';
 import { useApp } from '@/contexts/AppContext';
+import { exportCsv } from '@/lib/csvExport';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import api from '@/lib/apiClient';
 import type { PromotionPreviewRow } from '@/types';
@@ -109,10 +109,7 @@ export default function PromotionPreview() {
       row.target_class
     ]);
 
-    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Promotion Preview");
-    XLSX.writeFile(workbook, `Promotion_Preview_${currentAcademicYear}.xlsx`);
+    exportCsv(`Promotion_Preview_${currentAcademicYear}.csv`, [headers, ...rows]);
   };
 
   const exportPDF = () => {

@@ -76,7 +76,7 @@ export default function App() {
                   <Route path="/classes/import" element={<ExcelImport />} />
                   <Route path="/academic-year/rules" element={<PromotionRules />} />
                   <Route path="/academic-year/preview" element={<PromotionPreview />} />
-                  <Route path="/admin/teachers" element={<RoleProtectedRoute allowedRoles={['Principal', 'Admin', 'Super Admin']}><Teachers /></RoleProtectedRoute>} />
+                  <Route path="/admin/teachers" element={<RoleProtectedRoute allowedRoles={['Principal', 'Admin', 'Teacher', 'Super Admin']}><Teachers /></RoleProtectedRoute>} />
                   <Route path="/admin/teachers/:id" element={<RoleProtectedRoute allowedRoles={['Principal', 'Admin', 'Super Admin']}><TeacherProfile /></RoleProtectedRoute>} />
                   <Route path="/admin/audit-logs" element={<RoleProtectedRoute allowedRoles={['Principal', 'Admin', 'Super Admin']}><AuditLogs /></RoleProtectedRoute>} />
                 </Route>

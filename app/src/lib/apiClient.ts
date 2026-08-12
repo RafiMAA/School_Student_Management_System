@@ -11,6 +11,9 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api
 
 let accessToken: string | null = null;
 
+export const SESSION_EXPIRED_EVENT = 'ahadiya:session-expired';
+export const SESSION_EXPIRED_NOTICE_KEY = 'ahadiya-session-timeout';
+
 export function setAccessToken(token: string | null) {
   accessToken = token;
 }
@@ -33,6 +36,7 @@ async function request<T>(
   path: string,
   options: RequestInit = {},
   retryCount = 0,
+  authRetried = false,
 ): Promise<T> {
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string> || {}),
@@ -53,15 +57,23 @@ async function request<T>(
     const res = await fetch(url, { ...options, headers });
 
     if (res.status === 401) {
-      // Token expired or invalid — sign out via Supabase
-      setAccessToken(null);
-      supabase.auth.signOut();
-
-      // Redirect to login if we aren't already there
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+      // An installed app may resume before Supabase's background token refresh
+      // completes. Refresh and replay once before ending a valid session.
+      if (!authRetried) {
+        const { data, error } = await supabase.auth.refreshSession();
+        if (!error && data.session?.access_token) {
+          setAccessToken(data.session.access_token);
+          return request<T>(path, options, retryCount, true);
+        }
       }
-      throw new ApiError(401, 'Unauthorized');
+
+      // Notify React immediately instead of waiting for a full-page reload or
+      // for the asynchronous Supabase SIGNED_OUT event to arrive.
+      sessionStorage.setItem(SESSION_EXPIRED_NOTICE_KEY, 'true');
+      setAccessToken(null);
+      window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+      void supabase.auth.signOut({ scope: 'local' });
+      throw new ApiError(401, 'Your last session expired.');
     }
 
     if (res.status === 403) {
@@ -71,7 +83,7 @@ async function request<T>(
     if (res.status >= 500 && retryCount < 1) {
       // Retry once on server errors
       await new Promise(r => setTimeout(r, 1000));
-      return request<T>(path, options, retryCount + 1);
+      return request<T>(path, options, retryCount + 1, authRetried);
     }
 
     if (!res.ok) {

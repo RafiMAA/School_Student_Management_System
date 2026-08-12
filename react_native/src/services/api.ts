@@ -17,19 +17,28 @@ export const getAccessToken = () => token;
 
 export class ApiError extends Error { constructor(public status: number, message: string, public data?: any) { super(message); } }
 
-async function request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
+async function request<T>(path: string, init: RequestInit = {}, retry = true, authRetried = false): Promise<T> {
   const headers: Record<string, string> = { ...(init.headers as Record<string, string> || {}) };
   if (!(init.body instanceof FormData)) headers['Content-Type'] = 'application/json';
   if (token) headers.Authorization = `Bearer ${token}`;
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
     if (response.status === 401) {
-      // Token expired or invalid — sign out via Supabase
+      // The app may resume before automatic token refresh completes. Refresh
+      // and replay once before treating this as a genuinely invalid session.
+      if (!authRetried) {
+        const { data, error } = await supabase.auth.refreshSession();
+        if (!error && data.session?.access_token) {
+          setAccessToken(data.session.access_token);
+          return request<T>(path, init, retry, true);
+        }
+      }
+
       setAccessToken(null);
-      supabase.auth.signOut();
+      void supabase.auth.signOut({ scope: 'local' });
       throw new ApiError(401, 'Your session has expired.');
     }
-    if (response.status >= 500 && retry) return request<T>(path, init, false);
+    if (response.status >= 500 && retry) return request<T>(path, init, false, authRetried);
     if (!response.ok) { const data = await response.json().catch(() => ({})); throw new ApiError(response.status, data.detail || `Request failed (${response.status})`, data); }
     if (response.status === 204) return {} as T;
     const text = await response.text(); return text ? JSON.parse(text) : {} as T;

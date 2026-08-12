@@ -23,7 +23,7 @@ export default function Profile() {
       setFormData(prev => ({
         ...prev,
         full_name: data.full_name || '',
-        email: data.email || '',
+        email: data.email || user?.email || '',
         contact: data.contact || '',
         address: data.address || ''
       }));
@@ -31,7 +31,7 @@ export default function Profile() {
     }).catch(() => {
       addToast('error', 'Failed to load profile');
     });
-  }, [addToast]);
+  }, [addToast, user?.email]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });

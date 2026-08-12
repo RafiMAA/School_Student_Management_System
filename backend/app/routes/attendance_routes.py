@@ -9,7 +9,6 @@ from app.models import AttendanceBulkSubmit, AttendanceSummary, ClassAttendanceS
 
 router = APIRouter()
 
-
 @router.get("")
 async def list_attendance(
     class_id: Optional[str] = None,
@@ -152,16 +151,49 @@ async def submit_attendance_bulk(
             status_code=400, detail="Cannot mark attendance for a future Sunday")
 
     teacher_id = user.get("teacher_id")
+    if not body.records:
+        raise HTTPException(status_code=400, detail="At least one attendance record is required")
 
-    # Delete existing records for re-submission
-    await db.execute(
-        "DELETE FROM attendance WHERE class_id = $1 AND attendance_date = $2",
-        body.class_id, d,
-    )
+    student_ids = [record.student_id for record in body.records]
+    if len(student_ids) != len(set(student_ids)):
+        raise HTTPException(status_code=400, detail="Duplicate students are not allowed")
 
-    # Bulk insert
+    # Validation, replacement and audit are atomic. This prevents a failed
+    # submission from first erasing previously submitted attendance. Any
+    # authenticated staff member may cover attendance for an absent teacher.
     async with db.acquire() as conn:
         async with conn.transaction():
+            class_row = await conn.fetchrow(
+                """SELECT c.id
+                   FROM classes c
+                   JOIN academic_years ay ON ay.id = c.academic_year_id
+                   WHERE c.id = $1 AND ay.is_current = TRUE
+                   FOR SHARE OF c""",
+                body.class_id,
+            )
+            if class_row is None:
+                raise HTTPException(status_code=404, detail="Current class not found")
+
+            valid_student_count = await conn.fetchval(
+                """SELECT COUNT(*)
+                   FROM students
+                   WHERE id = ANY($1::uuid[])
+                     AND current_class_id = $2
+                     AND status = 'Active'""",
+                student_ids,
+                body.class_id,
+            )
+            if valid_student_count != len(student_ids):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Every student must be active and assigned to the selected class",
+                )
+
+            await conn.execute(
+                "DELETE FROM attendance WHERE class_id = $1 AND attendance_date = $2",
+                body.class_id, d,
+            )
+
             for rec in body.records:
                 await conn.execute(
                     """INSERT INTO attendance (student_id, class_id, attendance_date, status, marked_by, is_locked)
@@ -171,16 +203,14 @@ async def submit_attendance_bulk(
                     rec.student_id, body.class_id, d, rec.status, teacher_id,
                 )
 
-    # Audit
-    present = sum(1 for r in body.records if r.status == "Present")
-    absent = len(body.records) - present
-    await db.execute(
-        "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
-        "ATTENDANCE_SUBMITTED",
-        {"class_id": body.class_id, "date": str(
-            d), "present": present, "absent": absent},
-        teacher_id,
-    )
+            present = sum(1 for r in body.records if r.status == "Present")
+            absent = len(body.records) - present
+            await conn.execute(
+                "INSERT INTO audit_logs (action, details, performed_by) VALUES ($1, $2, $3)",
+                "ATTENDANCE_SUBMITTED",
+                {"class_id": body.class_id, "date": str(d), "present": present, "absent": absent},
+                teacher_id,
+            )
 
     return {"message": "Attendance submitted", "present": present, "absent": absent, "total": len(body.records)}
 
@@ -476,4 +506,3 @@ async def attendance_report(
         "students": students_data,
         "summary": summary
     }
-
