@@ -29,7 +29,12 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> list[str]:
-        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+        configured = [origin.strip().rstrip("/") for origin in self.cors_origins.split(",") if origin.strip()]
+        # Render environment variables can lag behind a frontend domain change.
+        # Always retain the known production origin in addition to configured
+        # localhost/preview origins.
+        required = ["https://ahadiya-student-management-system.vercel.app"]
+        return list(dict.fromkeys([*configured, *required]))
 
     class Config:
         env_file = ".env"

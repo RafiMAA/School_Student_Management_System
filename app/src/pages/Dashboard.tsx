@@ -72,7 +72,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
-  const { data: summary, isLoading: loading, error } = useQuery({
+  const { data: summary, isLoading: loading, error, refetch, isFetching } = useQuery({
     queryKey: ['dashboard-bootstrap'],
     queryFn: async () => {
       const data = await api.get<BootstrapData>('/dashboard/bootstrap');
@@ -106,6 +106,26 @@ export default function Dashboard() {
   };
 
 
+
+  if (error && !summary) {
+    return (
+      <div className="flex items-center justify-center py-20 px-4">
+        <div className="max-w-md w-full rounded-xl border border-red-200 dark:border-red-900/50 bg-white dark:bg-slate-900 p-6 text-center shadow-sm">
+          <XCircle className="w-10 h-10 mx-auto text-red-500" />
+          <h2 className="mt-3 text-lg font-bold text-slate-900 dark:text-white">Dashboard could not load</h2>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Check the connection to the school server and try again.</p>
+          <button
+            type="button"
+            disabled={isFetching}
+            onClick={() => void refetch()}
+            className="mt-5 px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-semibold"
+          >
+            {isFetching ? 'Retrying…' : 'Try Again'}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading || !summary) {
     return <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" /></div>;
