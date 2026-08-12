@@ -8,7 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import api from '@/lib/apiClient';
 import type { Student } from '@/types';
 
-const graduationYears = [2025, 2024, 2023, 2022, 2021, 2020];
+const currentYear = new Date().getFullYear();
+const graduationYears = Array.from({ length: 10 }, (_, index) => currentYear - index);
+const alumniFieldClass = 'w-full min-w-0 px-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500';
 
 export default function Alumni() {
   const navigate = useNavigate();
@@ -161,64 +163,64 @@ export default function Alumni() {
       </div>
 
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-h-[calc(100dvh-1rem)] max-w-xl overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Add Alumni</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleAdd} className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="col-span-2">
+          <form onSubmit={handleAdd} className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
               <label className="block text-xs font-medium text-slate-500 mb-1">Full Name *</label>
-              <input type="text" value={form.fullName} onChange={e => setForm({...form, fullName: e.target.value})} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-800" required />
+              <input type="text" value={form.fullName} onChange={e => setForm({...form, fullName: e.target.value})} className={alumniFieldClass} autoComplete="name" required />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Gender *</label>
-              <select value={form.gender} onChange={e => setForm({...form, gender: e.target.value as any})} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-800">
+              <select value={form.gender} onChange={e => setForm({...form, gender: e.target.value as any})} className={alumniFieldClass}>
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Date of Birth *</label>
-              <input type="date" value={form.dateOfBirth} onChange={e => setForm({...form, dateOfBirth: e.target.value})} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-800" required />
+              <input type="date" value={form.dateOfBirth} onChange={e => setForm({...form, dateOfBirth: e.target.value})} className={alumniFieldClass} required />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Parent's Name *</label>
-              <input type="text" value={form.parentName} onChange={e => setForm({...form, parentName: e.target.value})} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-800" required />
+              <input type="text" value={form.parentName} onChange={e => setForm({...form, parentName: e.target.value})} className={alumniFieldClass} required />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Parent's Contact *</label>
-              <input type="text" value={form.parentContact} onChange={e => setForm({...form, parentContact: e.target.value})} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-800" required />
+              <input type="tel" value={form.parentContact} onChange={e => setForm({...form, parentContact: e.target.value})} className={alumniFieldClass} inputMode="tel" autoComplete="tel" required />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Secondary Contact Name</label>
-              <input type="text" value={form.parentName2} onChange={e => setForm({...form, parentName2: e.target.value})} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-800" placeholder="Enter parent's name" />
+              <input type="text" value={form.parentName2} onChange={e => setForm({...form, parentName2: e.target.value})} className={alumniFieldClass} placeholder="Enter parent's name" />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Secondary Contact</label>
-              <input type="text" value={form.parentContact2} onChange={e => setForm({...form, parentContact2: e.target.value})} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-800" placeholder="e.g. 0771234567" />
+              <input type="tel" value={form.parentContact2} onChange={e => setForm({...form, parentContact2: e.target.value})} className={alumniFieldClass} inputMode="tel" placeholder="e.g. 0771234567" />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Own Contact</label>
-              <input type="text" value={form.ownContact} onChange={e => setForm({...form, ownContact: e.target.value})} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-800" placeholder="Optional" />
+              <input type="tel" value={form.ownContact} onChange={e => setForm({...form, ownContact: e.target.value})} className={alumniFieldClass} inputMode="tel" placeholder="Optional" />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Medium *</label>
-              <select value={form.medium} onChange={e => setForm({...form, medium: e.target.value as any})} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-800">
+              <select value={form.medium} onChange={e => setForm({...form, medium: e.target.value as any})} className={alumniFieldClass}>
                 <option value="Sinhala">Sinhala</option>
                 <option value="Tamil">Tamil</option>
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Joined Date *</label>
-              <input type="date" value={form.joinedDate} onChange={e => setForm({...form, joinedDate: e.target.value})} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-800" required />
+              <input type="date" value={form.joinedDate} onChange={e => setForm({...form, joinedDate: e.target.value})} className={alumniFieldClass} required />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Graduated Year *</label>
-              <input type="text" value={form.graduationYear} onChange={e => setForm({...form, graduationYear: e.target.value})} className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-800" placeholder="e.g. 2023" required />
+              <input type="text" value={form.graduationYear} onChange={e => setForm({...form, graduationYear: e.target.value.replace(/\D/g, '').slice(0, 4)})} className={alumniFieldClass} inputMode="numeric" pattern="[0-9]{4}" maxLength={4} placeholder="e.g. 2023" required />
             </div>
-            <div className="col-span-2 flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800 mt-2">
-              <button type="button" onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm font-medium border rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800">Cancel</button>
-              <button type="submit" disabled={submitting} className="px-4 py-2 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50">Save Alumni</button>
+            <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-4 dark:border-slate-800 sm:col-span-2 sm:mt-2 sm:flex-row sm:justify-end">
+              <button type="button" onClick={() => setShowAdd(false)} className="w-full px-4 py-2.5 text-sm font-medium border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 sm:w-auto">Cancel</button>
+              <button type="submit" disabled={submitting} className="w-full px-4 py-2.5 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 sm:w-auto">{submitting ? 'Saving…' : 'Save Alumni'}</button>
             </div>
           </form>
         </DialogContent>

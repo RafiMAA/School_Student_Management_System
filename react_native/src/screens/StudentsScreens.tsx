@@ -9,7 +9,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Avatar, Button, Card, EmptyState, Field, LoadingView, PageHeader, Pill, Row, Screen, Segmented, SelectField } from '../components/UI';
 import { useTheme } from '../contexts/ThemeContext';
-import { useAuth } from '../contexts/AuthContext';
+import { isAdmin, useAuth } from '../contexts/AuthContext';
 import { api, ApiError, API_BASE_URL, getAccessToken } from '../services/api';
 import type { SchoolClass, Student } from '../types';
 
@@ -139,6 +139,107 @@ export function ImportStudentsScreen({ navigation }: any) {
   return <Screen><PageHeader title="Import Students" subtitle="Upload an Excel or CSV file" /><Card style={{ gap: 15 }}><Text style={{ color: colors.text, fontWeight: '800' }}>Required columns</Text><Text style={{ color: colors.muted, lineHeight: 20 }}>Full Name, Gender, Date of Birth, Parent/Guardian Name, Parent Contact, Secondary Name, Secondary Contact, Class, Joined Date</Text><Button title="Download Excel template" icon="download-outline" variant="soft" loading={busy} onPress={downloadTemplate} /><Button title={file ? file.name : 'Choose Excel / CSV file'} icon="document-attach-outline" variant="outline" onPress={chooseFile} />{file && !preview && <Button title="Validate File" icon="checkmark-circle-outline" loading={busy} onPress={() => upload(false)} />}{preview && <View style={{ gap: 10 }}><Text style={{ color: colors.primary, fontWeight: '800' }}>{preview.valid} valid rows</Text>{preview.errors.slice(0, 5).map((error, index) => <Text key={index} style={{ color: colors.danger, fontSize: 12 }}>Row {error.row || '?'}: {error.message}</Text>)}{!preview.errors.length && <Button title="Confirm Import" icon="cloud-upload-outline" loading={busy} onPress={() => upload(true)} />}</View>}</Card></Screen>;
 }
 
-export function AlumniScreen({ navigation }: any) { const query = useQuery({ queryKey: ['alumni'], queryFn: () => api.get<{ items: Student[]; total: number }>('/students?status=Alumni&page=1&page_size=100') }); return <Screen refreshing={query.isRefetching} onRefresh={query.refetch}><PageHeader title="Alumni" subtitle={`${query.data?.total || 0} graduated students`} />{query.isLoading ? <LoadingView /> : !query.data?.items.length ? <EmptyState icon="ribbon-outline" title="No alumni records" /> : <Card>{query.data.items.map(st => <Row key={st.id} title={st.full_name} subtitle={`${st.gender} · ${st.own_contact || 'No contact number'} · Graduated ${st.graduation_year || '—'}`} onPress={() => navigation.navigate('StudentDetail', { id: st.id })} />)}</Card>}</Screen>; }
+const emptyAlumniForm = {
+  fullName: '', gender: 'Male', dob: '', parentName: '', parentName2: '',
+  parentContact: '', parentContact2: '', ownContact: '', medium: 'Sinhala',
+  joinedDate: '', graduationYear: String(new Date().getFullYear()),
+};
+
+export function AlumniScreen({ navigation }: any) {
+  const { user } = useAuth();
+  const { colors } = useTheme();
+  const qc = useQueryClient();
+  const canAdd = isAdmin(user?.role);
+  const [adding, setAdding] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState(emptyAlumniForm);
+  const [dateField, setDateField] = useState<'dob' | 'joinedDate' | null>(null);
+  const query = useQuery({
+    queryKey: ['alumni'],
+    queryFn: () => api.get<{ items: Student[]; total: number }>('/students?status=Alumni&page=1&page_size=100'),
+  });
+  useFocusEffect(useCallback(() => { query.refetch(); }, []));
+
+  const set = (key: keyof typeof form, value: string) =>
+    setForm(current => ({ ...current, [key]: value }));
+  const closeForm = () => {
+    setAdding(false);
+    setDateField(null);
+    setForm(emptyAlumniForm);
+  };
+  const dateValue = (value: string) => {
+    const parsed = new Date(`${value}T00:00:00`);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  };
+  const setDateValue = (_event: unknown, selected?: Date) => {
+    if (selected && dateField) set(dateField, selected.toISOString().slice(0, 10));
+    setDateField(null);
+  };
+  const save = async () => {
+    if (!form.fullName.trim() || !form.dob || !form.parentName.trim() ||
+        !form.parentContact.trim() || !form.joinedDate || !/^\d{4}$/.test(form.graduationYear)) {
+      return Alert.alert('Check the form', 'Complete all required fields and enter a four-digit graduation year.');
+    }
+    if (form.dob > form.joinedDate) {
+      return Alert.alert('Check the dates', 'Joined date cannot be before the date of birth.');
+    }
+
+    setBusy(true);
+    try {
+      await api.post('/students/alumni', {
+        full_name: form.fullName.trim(),
+        gender: form.gender,
+        date_of_birth: form.dob,
+        parent_name: form.parentName.trim(),
+        parent_name_2: form.parentName2.trim() || undefined,
+        parent_contact: form.parentContact.trim(),
+        parent_contact_2: form.parentContact2.trim() || undefined,
+        own_contact: form.ownContact.trim() || undefined,
+        medium: form.medium,
+        joined_date: form.joinedDate,
+        graduation_year: form.graduationYear,
+      });
+      await qc.invalidateQueries({ queryKey: ['alumni'] });
+      closeForm();
+      Alert.alert('Alumni added', 'The alumni record was added successfully.');
+    } catch (error) {
+      Alert.alert('Could not add alumni', (error as ApiError).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Screen refreshing={query.isRefetching} onRefresh={query.refetch}>
+      <PageHeader
+        title="Alumni"
+        subtitle={`${query.data?.total || 0} graduated students`}
+        action={canAdd ? (
+          <Button compact title={adding ? 'Cancel' : 'Add'} icon={adding ? 'close' : 'add'} onPress={adding ? closeForm : () => setAdding(true)} />
+        ) : undefined}
+      />
+      {adding && (
+        <Card style={{ gap: 15 }}>
+          <Text style={{ color: colors.text, fontSize: 16, fontWeight: '800' }}>Add Alumni</Text>
+          <Field label="Full name *" placeholder="Alumni full name" value={form.fullName} onChangeText={value => set('fullName', value)} />
+          <Text style={[s.fieldLabel, { color: colors.muted }]}>Gender *</Text>
+          <Segmented value={form.gender} options={[{ label: 'Male', value: 'Male' }, { label: 'Female', value: 'Female' }]} onChange={value => set('gender', value)} />
+          <Field label="Date of birth *" placeholder="Select date" value={form.dob} editable={false} showSoftInputOnFocus={false} onPressIn={() => setDateField('dob')} />
+          <Field label="Parent or guardian name *" placeholder="Primary contact name" value={form.parentName} onChangeText={value => set('parentName', value)} />
+          <Field label="Parent contact *" placeholder="Contact number" keyboardType="phone-pad" value={form.parentContact} onChangeText={value => set('parentContact', value.replace(/[^\d+]/g, ''))} />
+          <Field label="Secondary contact name" placeholder="Optional" value={form.parentName2} onChangeText={value => set('parentName2', value)} />
+          <Field label="Secondary contact" placeholder="Optional" keyboardType="phone-pad" value={form.parentContact2} onChangeText={value => set('parentContact2', value.replace(/[^\d+]/g, ''))} />
+          <Field label="Own contact" placeholder="Optional" keyboardType="phone-pad" value={form.ownContact} onChangeText={value => set('ownContact', value.replace(/[^\d+]/g, ''))} />
+          <SelectField label="Medium *" value={form.medium} options={[{ label: 'Sinhala', value: 'Sinhala' }, { label: 'Tamil', value: 'Tamil' }]} onChange={value => set('medium', value)} />
+          <Field label="Joined date *" placeholder="Select date" value={form.joinedDate} editable={false} showSoftInputOnFocus={false} onPressIn={() => setDateField('joinedDate')} />
+          <Field label="Graduated year *" placeholder="e.g. 2026" keyboardType="number-pad" maxLength={4} value={form.graduationYear} onChangeText={value => set('graduationYear', value.replace(/\D/g, '').slice(0, 4))} />
+          {dateField && <DateTimePicker value={dateValue(form[dateField])} mode="date" display="calendar" onChange={setDateValue} maximumDate={new Date()} />}
+          <Button title="Save Alumni" icon="save-outline" loading={busy} onPress={save} />
+        </Card>
+      )}
+      {query.isLoading ? <LoadingView /> : !query.data?.items.length ? <EmptyState icon="ribbon-outline" title="No alumni records" /> : <Card>{query.data.items.map(st => <Row key={st.id} title={st.full_name} subtitle={`${st.gender} · ${st.own_contact || 'No contact number'} · Graduated ${st.graduation_year || '—'}`} onPress={() => navigation.navigate('StudentDetail', { id: st.id })} />)}</Card>}
+    </Screen>
+  );
+}
 
 const s = StyleSheet.create({ headerActions: { flexDirection: 'row', gap: 8 }, filterRow: { flexDirection: 'row', gap: 10 }, profile: { alignItems: 'center', gap: 6, paddingVertical: 8 }, profileName: { fontSize: 21, fontWeight: '900', marginTop: 5, textAlign: 'center' }, metrics: { flexDirection: 'row', gap: 9 }, metric: { flex: 1, alignItems: 'center', padding: 12 }, metricValue: { fontWeight: '900', fontSize: 20 }, section: { fontSize: 16, fontWeight: '800', marginTop: 4 }, fieldLabel: { fontSize: 12, fontWeight: '700', marginBottom: -8 }, yearGridWrap: { marginTop: 10, paddingVertical: 10, paddingHorizontal: 5, borderRadius: 16 }, yearGrid: { width: '100%', flexDirection: 'row', justifyContent: 'space-between' }, monthColumn: { width: 23, alignItems: 'center', gap: 4 }, monthLabel: { fontSize: 9, fontWeight: '700', marginBottom: 2 }, yearCell: { width: 19, height: 19, borderRadius: 4 }, reportCard: { gap: 12 }, reportHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 }, reportTitle: { fontSize: 16, fontWeight: '800' }, reportList: { gap: 0 }, reportItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth }, reportText: { fontSize: 14, lineHeight: 20 } });
