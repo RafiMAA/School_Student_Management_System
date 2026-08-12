@@ -9,7 +9,10 @@ const listeners = new Set<() => void>();
 const notify = () => listeners.forEach(listener => listener());
 
 window.addEventListener('beforeinstallprompt', event => {
-  event.preventDefault();
+  // Do not prevent the default browser install UI. Suppressing it made the
+  // PWA appear non-installable everywhere except the Settings page. We still
+  // retain the event so the explicit in-app Install button can request the
+  // prompt in Chromium browsers that allow both entry points.
   deferredPrompt = event as BeforeInstallPromptEvent;
   notify();
 });
@@ -31,13 +34,20 @@ export const subscribeToPWAInstall = (listener: () => void) => {
 export async function promptPWAInstall() {
   if (!deferredPrompt) return 'unavailable' as const;
   const prompt = deferredPrompt;
-  await prompt.prompt();
-  const { outcome } = await prompt.userChoice;
-  if (outcome === 'accepted') {
+  try {
+    await prompt.prompt();
+    const { outcome } = await prompt.userChoice;
+    // A BeforeInstallPromptEvent can be used only once, regardless of choice.
     deferredPrompt = null;
     notify();
+    return outcome;
+  } catch {
+    // Some browsers consume the event after showing their own install UI.
+    // Clear it so Settings falls back to accurate browser-menu guidance.
+    deferredPrompt = null;
+    notify();
+    return 'unavailable' as const;
   }
-  return outcome;
 }
 
 export const isRunningAsPWA = () =>

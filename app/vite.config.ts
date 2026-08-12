@@ -20,6 +20,7 @@ export default defineConfig({
         name: 'Al-Meera Ahadiya School Management System',
         short_name: 'Al-Meera Ahadiya',
         description: 'Student, attendance, class, and school management for Al-Meera Ahadiya School.',
+        categories: ['education', 'productivity'],
         theme_color: '#059669',
         background_color: '#f8fafc',
         display: 'standalone',

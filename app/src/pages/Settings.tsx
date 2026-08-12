@@ -53,6 +53,11 @@ export default function Settings() {
     if (outcome === 'accepted') {
       setCanInstall(false);
       addToast('success', 'Ahadiya School app installed successfully');
+    } else if (outcome === 'dismissed') {
+      addToast('info', 'Installation was cancelled');
+    } else {
+      setCanInstall(false);
+      addToast('info', 'Use the install icon in the address bar or your browser menu');
     }
   };
 
