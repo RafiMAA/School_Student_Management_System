@@ -22,7 +22,7 @@ export interface Teacher {
   id: string;
   full_name: string;
   contact: string;
-  email: string;
+  email?: string;
   assigned_class?: string;
   assigned_class_ids?: string[];
   role: 'Principal' | 'Admin' | 'Teacher' | 'Super Admin';

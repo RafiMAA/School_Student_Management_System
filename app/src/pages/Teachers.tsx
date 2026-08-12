@@ -80,7 +80,6 @@ export default function Teachers() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white">Teachers & Staff</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{canOpenProfiles ? 'Manage school personnel and system access.' : 'View school personnel and class assignments.'}</p>
         </div>
         {canOpenProfiles && (
           <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors active:scale-95">
@@ -116,12 +115,6 @@ export default function Teachers() {
             </tbody>
           </table>
         </div>
-        {canOpenProfiles && (
-          <div className="bg-slate-900 text-slate-300 p-4 text-sm flex items-start gap-2 border-t border-slate-800">
-            <div className="mt-0.5">ℹ️</div>
-            <p>Click on a teacher's name to view their profile, manage permissions, or edit details.</p>
-          </div>
-        )}
       </div>
 
       {/* Add Dialog */}

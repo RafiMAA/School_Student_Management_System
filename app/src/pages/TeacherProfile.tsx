@@ -194,7 +194,7 @@ export default function TeacherProfile() {
             <div className="space-y-4">
               <div>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Email Address</p>
-                <p className="font-medium text-slate-900 dark:text-white font-mono">{teacher.email}</p>
+                <p className="font-medium text-slate-900 dark:text-white font-mono">{teacher.email || 'Not provided'}</p>
               </div>
               <div>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Contact Number</p>

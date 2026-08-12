@@ -21,9 +21,11 @@ def _require_role_management(actor_role: str, target_role: str) -> None:
 
 
 def _row_to_response(r, assigned_class=None, assigned_class_ids=None) -> TeacherResponse:
+    stored_username = r.get("username") or ""
+    email = r.get("email") or (stored_username if "@" in stored_username else None)
     return TeacherResponse(
         id=str(r["id"]), full_name=r["full_name"], contact=r["contact"], address=r.get("address"),
-        email=r["username"], role=r["role"],
+        email=email, role=r["role"],
         assigned_class=assigned_class,
         assigned_class_ids=assigned_class_ids,
         created_at=r["created_at"],
@@ -41,9 +43,12 @@ async def list_teachers(
 
     query = """
         SELECT t.id, t.full_name, t.contact, t.address, t.username, t.role, t.created_at,
+               COALESCE(MAX(auth_user.email), CASE WHEN POSITION('@' IN t.username) > 1 THEN t.username END) AS email,
                STRING_AGG('Grade ' || c.grade || ' ' || c.medium::TEXT || ' ' || c.gender_type::TEXT, ', ' ORDER BY c.grade, c.medium, c.gender_type) AS assigned_class_name,
                ARRAY_AGG(c.id::TEXT) FILTER (WHERE c.id IS NOT NULL) AS assigned_class_ids
         FROM teachers t
+        LEFT JOIN admin_users au ON au.teacher_id = t.id
+        LEFT JOIN auth.users auth_user ON auth_user.id = au.id
         LEFT JOIN classes c ON c.teacher_id = t.id
             AND c.academic_year_id = $1
         WHERE 1=1
@@ -70,9 +75,12 @@ async def get_teacher(
 
     query = """
         SELECT t.id, t.full_name, t.contact, t.address, t.username, t.role, t.created_at,
+               COALESCE(MAX(auth_user.email), CASE WHEN POSITION('@' IN t.username) > 1 THEN t.username END) AS email,
                STRING_AGG('Grade ' || c.grade || ' ' || c.medium::TEXT || ' ' || c.gender_type::TEXT, ', ' ORDER BY c.grade, c.medium, c.gender_type) AS assigned_class_name,
                ARRAY_AGG(c.id::TEXT) FILTER (WHERE c.id IS NOT NULL) AS assigned_class_ids
         FROM teachers t
+        LEFT JOIN admin_users au ON au.teacher_id = t.id
+        LEFT JOIN auth.users auth_user ON auth_user.id = au.id
         LEFT JOIN classes c ON c.teacher_id = t.id
             AND c.academic_year_id = $2
         WHERE t.id = $1

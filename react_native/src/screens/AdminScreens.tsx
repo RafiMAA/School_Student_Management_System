@@ -737,7 +737,7 @@ export function TeacherDetailScreen({ route, navigation }: any) {
           title="Address"
           subtitle={t.address || "Not provided"}
         />
-        <Row icon="at-outline" title="Email" subtitle={t.email} />
+        <Row icon="at-outline" title="Email" subtitle={t.email || "Not provided"} />
       </Card>
       {canManage && (
         <Card style={{ gap: 13 }}>

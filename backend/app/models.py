@@ -275,7 +275,7 @@ class TeacherResponse(BaseModel):
     full_name: str
     contact: str
     address: Optional[str] = None
-    email: str
+    email: Optional[str] = None
     role: str
     assigned_class: Optional[str] = None
     assigned_class_ids: Optional[list[str]] = None
