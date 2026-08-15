@@ -98,7 +98,7 @@ export default function Login() {
       <div className="relative z-10 w-full max-w-sm mx-4">
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg p-8">
           <div className="text-center mb-6">
-            <img src={resolvedTheme === 'dark' ? '/ahadiya-logo-white-v3.png' : '/ahadiya-logo-black-v3.png'} alt="Ahadiya School" className="w-20 h-20 object-contain mx-auto mb-4" />
+            <img src={resolvedTheme === 'dark' ? '/ahadiya-logo-white.png' : '/ahadiya-logo-black.png'} alt="Ahadiya School" className="w-20 h-20 object-contain mx-auto mb-4" />
             <h1 className="text-xl font-bold text-slate-900 dark:text-white">Al-Meera Ahadiya School</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Ahadiya Management System</p>
           </div>

@@ -3,12 +3,12 @@ export default function StartupScreen() {
     <div className="min-h-dvh flex items-center justify-center bg-slate-50 dark:bg-[#06101f] px-6">
       <div className="flex flex-col items-center text-center -translate-y-[3vh]">
         <img
-          src="/ahadiya-logo-black-v3.png"
+          src="/ahadiya-logo-black.png"
           alt="Al-Meera Ahadiya School"
           className="w-[min(64vw,300px)] h-auto object-contain dark:hidden"
         />
         <img
-          src="/ahadiya-logo-white-v3.png"
+          src="/ahadiya-logo-white.png"
           alt="Al-Meera Ahadiya School"
           className="hidden w-[min(64vw,300px)] h-auto object-contain dark:block"
         />
