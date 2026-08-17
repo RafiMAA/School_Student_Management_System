@@ -8,7 +8,7 @@ import { exportCsv } from '@/lib/csvExport';
 interface AuditLog {
   id: string;
   action: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   performed_by: string;
   performer_name: string;
   performed_at: string;
@@ -26,7 +26,6 @@ export default function AuditLogs() {
   const [totalRecords, setTotalRecords] = useState(0);
 
   useEffect(() => {
-    setLoading(true);
     let url = `/audit-logs?page=${page}&page_size=20`;
     if (search) url += `&search=${encodeURIComponent(search)}`;
 
@@ -41,6 +40,7 @@ export default function AuditLogs() {
   }, [page, search, addToast]);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLoading(true);
     setSearch(e.target.value);
     setPage(1);
   };
@@ -55,6 +55,13 @@ export default function AuditLogs() {
     if (action.includes('UPDATE') || action.includes('EDIT')) return 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 border-blue-100 dark:border-blue-900';
     if (action.includes('LOGIN')) return 'text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400 border-purple-100 dark:border-purple-900';
     return 'text-slate-600 bg-slate-50 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700';
+  };
+
+  const getActionType = (action: string) => {
+    if (action.includes('ADD') || action.includes('CREATE')) return 'Create';
+    if (action.includes('UPDATE') || action.includes('EDIT')) return 'Update';
+    if (action.includes('DELETE') || action.includes('DEACTIVATE')) return 'Delete';
+    return 'Event';
   };
 
   const handleExportExcel = async () => {
@@ -75,7 +82,7 @@ export default function AuditLogs() {
       exportCsv(`Audit_Logs_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`, [headers, ...rows]);
       
       addToast('success', 'Audit logs exported successfully');
-    } catch (err) {
+    } catch {
       addToast('error', 'Failed to export audit logs');
     }
   };
@@ -98,8 +105,8 @@ export default function AuditLogs() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+    <div className="pwa-audit space-y-4 sm:space-y-6 max-w-5xl mx-auto">
+      <div className="pwa-audit-desktop-controls flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
         <div>
           <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <ShieldAlert className="w-5 h-5 text-indigo-500" />
@@ -125,6 +132,22 @@ export default function AuditLogs() {
             <Download className="w-4 h-4 text-emerald-500" /> Export CSV
           </button>
         </div>
+      </div>
+
+      <div className="pwa-only pwa-audit-native-heading">
+        <h1>Audit Logs</h1>
+        <p>{totalRecords} system activities</p>
+      </div>
+
+      <div className="pwa-only pwa-audit-native-search">
+        <label htmlFor="pwa-audit-search">Search</label>
+        <input
+          id="pwa-audit-search"
+          type="search"
+          placeholder="Action or user"
+          value={search}
+          onChange={handleSearch}
+        />
       </div>
 
       {/* Desktop table view */}
@@ -166,7 +189,7 @@ export default function AuditLogs() {
                   <td className="px-4 py-3 text-sm">
                     <div className="font-mono text-xs bg-slate-50 dark:bg-slate-800 p-2 rounded border border-slate-100 dark:border-slate-700 text-slate-600 dark:text-slate-300 max-h-24 overflow-y-auto">
                       {Object.keys(log.details).length > 0 
-                        ? JSON.stringify(log.details, null, 2).replace(/[\{\}"]/g, '') 
+                        ? JSON.stringify(log.details, null, 2).replace(/[{}"]/g, '')
                         : 'No additional details'}
                     </div>
                   </td>
@@ -185,7 +208,7 @@ export default function AuditLogs() {
       </div>
 
       {/* Mobile card view */}
-      <div className="md:hidden space-y-3">
+      <div className="pwa-audit-legacy-mobile md:hidden space-y-3">
         {loading ? (
           <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" /></div>
         ) : logs.map((log) => (
@@ -207,7 +230,7 @@ export default function AuditLogs() {
             </div>
             {Object.keys(log.details).length > 0 && (
               <div className="mt-2 font-mono text-xs bg-slate-50 dark:bg-slate-800 p-2 rounded border border-slate-100 dark:border-slate-700 text-slate-600 dark:text-slate-300 max-h-20 overflow-y-auto">
-                {JSON.stringify(log.details, null, 2).replace(/[\{\}"]/g, '')}
+                {JSON.stringify(log.details, null, 2).replace(/[{}"]/g, '')}
               </div>
             )}
           </div>
@@ -219,18 +242,37 @@ export default function AuditLogs() {
         )}
       </div>
 
+      <section className="pwa-only pwa-audit-native-list" aria-live="polite">
+        {loading ? (
+          <div className="pwa-student-loading"><span /></div>
+        ) : logs.length === 0 ? (
+          <p className="pwa-student-empty">No audit logs found</p>
+        ) : logs.map((log) => (
+          <article className="pwa-audit-native-row" key={log.id}>
+            <span className="pwa-audit-native-icon"><Clock aria-hidden="true" /></span>
+            <div className="pwa-audit-native-copy">
+              <strong>{formatAction(log.action)}</strong>
+              <small>{log.performer_name} · {format(parseISO(log.performed_at), 'dd/MM/yyyy, HH:mm:ss')}</small>
+            </div>
+            <span className={`pwa-audit-native-badge ${getActionType(log.action).toLowerCase()}`}>
+              {getActionType(log.action)}
+            </span>
+          </article>
+        ))}
+      </section>
+
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-1 py-3">
+        <div className="pwa-audit-pagination flex flex-col sm:flex-row items-center justify-between gap-3 px-1 py-3">
           <p className="text-xs text-slate-500 dark:text-slate-400">Showing {((page - 1) * 20) + 1} to {Math.min(page * 20, totalRecords)} of {totalRecords}</p>
           <div className="flex gap-1 flex-wrap justify-center">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 text-xs border rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300">Prev</button>
+            <button onClick={() => { setLoading(true); setPage(p => Math.max(1, p - 1)); }} disabled={page === 1} className="px-3 py-1.5 text-xs border rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300">Prev</button>
             {getPageNumbers().map((p, idx) => (
               typeof p === 'string' 
                 ? <span key={`ellipsis-${idx}`} className="px-2 py-1.5 text-xs text-slate-400">...</span>
-                : <button key={p} onClick={() => setPage(p)} className={`px-3 py-1.5 text-xs border rounded-lg ${page === p ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300'}`}>{p}</button>
+                : <button key={p} onClick={() => { setLoading(true); setPage(p); }} className={`px-3 py-1.5 text-xs border rounded-lg ${page === p ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300'}`}>{p}</button>
             ))}
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 text-xs border rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300">Next</button>
+            <button onClick={() => { setLoading(true); setPage(p => Math.min(totalPages, p + 1)); }} disabled={page === totalPages} className="px-3 py-1.5 text-xs border rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300">Next</button>
           </div>
         </div>
       )}

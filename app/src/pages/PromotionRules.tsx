@@ -1,11 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Plus, Trash2, GitMerge } from 'lucide-react';
+import { ArrowRight, Plus, Trash2, GitMerge, Mars, Venus, Rocket } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/contexts/ToastContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import api from '@/lib/apiClient';
 import type { Class, PromotionRule } from '@/types';
+
+function getErrorDetail(error: unknown, fallback: string) {
+  if (typeof error === 'object' && error !== null && 'data' in error) {
+    const data = (error as { data?: unknown }).data;
+    if (typeof data === 'object' && data !== null && 'detail' in data) {
+      const detail = (data as { detail?: unknown }).detail;
+      if (typeof detail === 'string') return detail;
+    }
+  }
+  return fallback;
+}
 
 export default function PromotionRules() {
   const navigate = useNavigate();
@@ -45,8 +56,8 @@ export default function PromotionRules() {
       setForm({ from_class_id: '', male_to_class_id: '', female_to_class_id: '' });
       queryClient.invalidateQueries({ queryKey: ['promotion-rules'] });
       queryClient.invalidateQueries({ queryKey: ['promotion-preview'] });
-    } catch (err: any) {
-      addToast('error', err?.data?.detail || 'Failed to create rule');
+    } catch (error: unknown) {
+      addToast('error', getErrorDetail(error, 'Failed to create rule'));
     }
   };
 
@@ -56,15 +67,61 @@ export default function PromotionRules() {
       addToast('success', 'Rule deleted successfully');
       queryClient.invalidateQueries({ queryKey: ['promotion-rules'] });
       queryClient.invalidateQueries({ queryKey: ['promotion-preview'] });
-    } catch (err: any) {
-      addToast('error', err?.data?.detail || 'Failed to delete rule');
+    } catch (error: unknown) {
+      addToast('error', getErrorDetail(error, 'Failed to delete rule'));
     }
   };
 
   const grade11Classes = classes.filter(c => parseInt(c.grade) === 11);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
+    <div className="pwa-promotion max-w-4xl mx-auto space-y-4 sm:space-y-6">
+      <section className="pwa-only pwa-promotion-native">
+        <div className="pwa-promotion-native-heading">
+          <div><h1>Promotion Rules</h1><p>Class progression at year end</p></div>
+          <button type="button" onClick={() => setNewRule(true)}><Plus aria-hidden="true" /> Add</button>
+        </div>
+
+        <button type="button" className="pwa-promotion-preview" onClick={() => navigate('/academic-year/preview')}>
+          <Rocket aria-hidden="true" /> Preview &amp; Execute
+        </button>
+
+        <div className="pwa-promotion-native-list">
+          {loading ? (
+            <div className="pwa-student-loading"><span /></div>
+          ) : rules.length === 0 ? (
+            <p className="pwa-student-empty">No promotion rules defined yet</p>
+          ) : rules.map((rule) => {
+            const boysOnly = rule.from_class_name?.includes('Boys');
+            const girlsOnly = rule.from_class_name?.includes('Girls');
+            return (
+              <article className="pwa-promotion-rule-card" key={rule.id}>
+                <p>FROM CLASS</p>
+                <h2>{rule.from_class_name}</h2>
+                <div className="pwa-promotion-targets">
+                  {!girlsOnly && rule.male_to_class_id && (
+                    <div className="pwa-promotion-target-row">
+                      <span><Mars aria-hidden="true" /></span>
+                      <div><strong>Boys</strong><small>{rule.male_to_class_name}</small></div>
+                    </div>
+                  )}
+                  {!boysOnly && rule.female_to_class_id && (
+                    <div className="pwa-promotion-target-row">
+                      <span><Venus aria-hidden="true" /></span>
+                      <div><strong>Girls</strong><small>{rule.female_to_class_name}</small></div>
+                    </div>
+                  )}
+                </div>
+                <button type="button" className="pwa-promotion-delete" onClick={() => handleDeleteRule(rule.id)}>
+                  <Trash2 aria-hidden="true" /> Delete Rule
+                </button>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <div className="pwa-promotion-desktop space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -179,6 +236,7 @@ export default function PromotionRules() {
             <span className="text-xs text-amber-600/70 dark:text-amber-500/50">No Grade 11 classes exist.</span>
           )}
         </div>
+      </div>
       </div>
 
       {/* Add Rule Dialog */}

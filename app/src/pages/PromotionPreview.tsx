@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Play, Download, AlertTriangle, CheckCircle2, FileText, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Play, Download, AlertTriangle, CheckCircle2, FileText, RotateCcw, Rocket } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -10,6 +10,17 @@ import { exportCsv } from '@/lib/csvExport';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import api from '@/lib/apiClient';
 import type { PromotionPreviewRow } from '@/types';
+
+function getErrorDetail(error: unknown, fallback: string) {
+  if (typeof error === 'object' && error !== null && 'data' in error) {
+    const data = (error as { data?: unknown }).data;
+    if (typeof data === 'object' && data !== null && 'detail' in data) {
+      const detail = (data as { detail?: unknown }).detail;
+      if (typeof detail === 'string') return detail;
+    }
+  }
+  return fallback;
+}
 
 export default function PromotionPreview() {
   const navigate = useNavigate();
@@ -71,8 +82,8 @@ export default function PromotionPreview() {
       queryClient.invalidateQueries({ queryKey: ['classes'] });
       queryClient.invalidateQueries({ queryKey: ['students'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
-    } catch (err: any) {
-      addToast('error', err?.data?.detail || 'Failed to execute promotion');
+    } catch (error: unknown) {
+      addToast('error', getErrorDetail(error, 'Failed to execute promotion'));
     } finally {
       setExecuting(false);
     }
@@ -90,8 +101,8 @@ export default function PromotionPreview() {
       queryClient.invalidateQueries({ queryKey: ['classes'] });
       queryClient.invalidateQueries({ queryKey: ['students'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
-    } catch (err: any) {
-      addToast('error', err?.data?.detail || 'Failed to undo promotion');
+    } catch (error: unknown) {
+      addToast('error', getErrorDetail(error, 'Failed to undo promotion'));
     } finally {
       setUndoing(false);
     }
@@ -168,7 +179,7 @@ export default function PromotionPreview() {
               <Download className="w-4 h-4 text-emerald-500 shrink-0" /> <span>Excel</span>
             </button>
           </div>
-          <div className="flex gap-2">
+          <div className="pwa-preview-compact-actions flex gap-2">
             <button 
               onClick={() => setUndoDialog(true)} 
               disabled={loading}
@@ -300,6 +311,25 @@ export default function PromotionPreview() {
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="pwa-only pwa-preview-native-actions">
+        <button
+          type="button"
+          className="execute"
+          onClick={() => setConfirmDialog(true)}
+          disabled={previewData.length === 0 || loading}
+        >
+          <Rocket aria-hidden="true" /> Execute Promotion
+        </button>
+        <button
+          type="button"
+          className="undo"
+          onClick={() => setUndoDialog(true)}
+          disabled={loading}
+        >
+          <RotateCcw aria-hidden="true" /> Undo Last Promotion
+        </button>
       </div>
 
       <Dialog open={confirmDialog} onOpenChange={setConfirmDialog}>

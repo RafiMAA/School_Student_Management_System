@@ -34,7 +34,10 @@ export default function Header() {
   const [appearanceModalOpen, setAppearanceModalOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const pageTitle = breadcrumbMap[location.pathname] || 'Dashboard';
+  let pageTitle = breadcrumbMap[location.pathname];
+  if (!pageTitle && location.pathname.startsWith('/students/alumni/')) pageTitle = 'Alumni Profile';
+  if (!pageTitle && location.pathname.startsWith('/students/')) pageTitle = 'Student Profile';
+  if (!pageTitle) pageTitle = 'Dashboard';
 
   const initials = user?.fullName
     ? user.fullName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()

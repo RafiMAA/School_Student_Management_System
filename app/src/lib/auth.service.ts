@@ -46,12 +46,10 @@ async function loadAdminProfile(
 export async function signInWithPassword(
   email: string,
   password: string,
-  captchaToken?: string,
 ): Promise<AppUser> {
   const { data, error } = await supabase.auth.signInWithPassword({
     email: email.trim().toLowerCase(),
     password,
-    options: captchaToken ? { captchaToken } : undefined,
   });
 
   if (error) throw new Error(error.message || 'Invalid email or password.');

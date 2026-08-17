@@ -1,15 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type Dispatch, type SetStateAction } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Search, Plus } from 'lucide-react';
+import { Search, Plus, UploadCloud } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/contexts/ToastContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import api from '@/lib/apiClient';
 import type { Student } from '@/types';
+import { usePwaUi } from '@/hooks/use-pwa-ui';
 
 const grades = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'];
 
 export default function StudentList() {
+  const pwaUi = usePwaUi();
   const navigate = useNavigate();
   const { addToast } = useToast();
   const queryClient = useQueryClient();
@@ -24,7 +26,7 @@ export default function StudentList() {
   const [deleteDialog, setDeleteDialog] = useState<string | null>(null);
 
   const buildUrl = () => {
-    let url = `/students?page=${page}&page_size=10`;
+    let url = `/students?page=${pwaUi ? 1 : page}&page_size=${pwaUi ? 100 : 10}`;
     if (search) url += `&search=${encodeURIComponent(search)}`;
     if (gradeFilter) url += `&grade=${gradeFilter}`;
     if (mediumFilter) url += `&medium=${mediumFilter}`;
@@ -36,7 +38,7 @@ export default function StudentList() {
   };
 
   const { data, isLoading: loading, error } = useQuery({
-    queryKey: ['students', page, search, gradeFilter, mediumFilter, genderFilter, statusFilter],
+    queryKey: ['students', pwaUi ? 1 : page, pwaUi, search, gradeFilter, mediumFilter, genderFilter, statusFilter],
     queryFn: () => api.get<{items: Student[], total: number, total_pages: number}>(buildUrl()),
   });
 
@@ -48,7 +50,7 @@ export default function StudentList() {
   const totalRecords = data?.total || 0;
   const totalPages = data?.total_pages || 1;
 
-  const handleFilterChange = (setter: any, val: string) => {
+  const handleFilterChange = (setter: Dispatch<SetStateAction<string>>, val: string) => {
     setter(val);
     setPage(1);
   };
@@ -59,10 +61,81 @@ export default function StudentList() {
       setDeleteDialog(null);
       addToast('success', 'Student deleted successfully');
       queryClient.invalidateQueries({ queryKey: ['students'] });
-    } catch (err: any) {
-      addToast('error', err?.data?.detail || 'Failed to delete student');
+    } catch (err: unknown) {
+      const apiError = err as { data?: { detail?: string } };
+      addToast('error', apiError.data?.detail || 'Failed to delete student');
     }
   };
+
+  if (pwaUi) {
+    return (
+      <div className="pwa-students-native">
+        <header className="pwa-students-heading">
+          <div>
+            <h1>Students</h1>
+            <p>{totalRecords} active students</p>
+          </div>
+          <div className="pwa-students-actions">
+            <button type="button" className="import" onClick={() => navigate('/classes/import')}>
+              <UploadCloud /> <span>Import</span>
+            </button>
+            <button type="button" className="add" onClick={() => navigate('/students/add')}>
+              <Plus /> <span>Add</span>
+            </button>
+          </div>
+        </header>
+
+        <section className="pwa-students-controls">
+          <label className="pwa-student-search">
+            <span>Search</span>
+            <div>
+              <Search />
+              <input
+                type="search"
+                placeholder="Student name"
+                value={search}
+                onChange={event => handleFilterChange(setSearch, event.target.value)}
+              />
+            </div>
+          </label>
+          <div className="pwa-student-filter-grid">
+            <label>
+              <span>Gender</span>
+              <select value={genderFilter} onChange={event => handleFilterChange(setGenderFilter, event.target.value)}>
+                <option value="">All genders</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+            </label>
+            <label>
+              <span>Medium</span>
+              <select value={mediumFilter} onChange={event => handleFilterChange(setMediumFilter, event.target.value)}>
+                <option value="">All mediums</option>
+                <option value="Sinhala">Sinhala</option>
+                <option value="Tamil">Tamil</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section className="pwa-student-card" aria-live="polite">
+          {loading ? (
+            <div className="pwa-student-loading"><span /></div>
+          ) : students.length === 0 ? (
+            <p className="pwa-student-empty">No students found</p>
+          ) : students.map(student => (
+            <button type="button" key={student.id} className="pwa-student-row" onClick={() => navigate(`/students/${student.id}`)}>
+              <span className="pwa-student-copy">
+                <strong>{student.full_name}</strong>
+                <small>{student.class_name || `Grade ${student.current_grade}`} · {student.gender}</small>
+              </span>
+              <span className="pwa-student-medium">{student.medium}</span>
+            </button>
+          ))}
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

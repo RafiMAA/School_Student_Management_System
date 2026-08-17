@@ -9,6 +9,7 @@ import { useToast } from '@/contexts/ToastContext';
 import api from '@/lib/apiClient';
 import { exportCsv } from '@/lib/csvExport';
 import type { Class } from '@/types';
+import { usePwaUi } from '@/hooks/use-pwa-ui';
 
 interface AttendanceReportResponse {
   sundays: string[];
@@ -24,6 +25,7 @@ interface AttendanceReportResponse {
 }
 
 export default function AttendanceHistory() {
+  const pwaUi = usePwaUi();
   const [searchParams] = useSearchParams();
   const initialClassId = searchParams.get('class_id') || '';
 
@@ -39,26 +41,20 @@ export default function AttendanceHistory() {
     queryFn: () => api.get<Class[]>('/classes'),
   });
 
-  const classes = classesData || [];
-
-  // Set default class if not set
-  useEffect(() => {
-    if (classes.length > 0 && !selectedClass) {
-      setSelectedClass(classes[0].id);
-    }
-  }, [classes, selectedClass]);
+  const classes = useMemo(() => classesData || [], [classesData]);
+  const effectiveClass = selectedClass || classes[0]?.id || '';
 
   // Fetch report
   const monthStr = format(currentMonth, 'yyyy-MM');
   const { data: reportData, isLoading, error } = useQuery({
-    queryKey: ['attendance-report', selectedClass, mode, monthStr],
+    queryKey: ['attendance-report', effectiveClass, mode, monthStr],
     queryFn: () => {
-      if (!selectedClass) return null;
-      let url = `/attendance/report?class_id=${selectedClass}&mode=${mode}`;
+      if (!effectiveClass) return null;
+      let url = `/attendance/report?class_id=${effectiveClass}&mode=${mode}`;
       if (mode === 'monthly') url += `&month=${monthStr}`;
       return api.get<AttendanceReportResponse>(url);
     },
-    enabled: !!selectedClass,
+    enabled: !!effectiveClass,
   });
 
   useEffect(() => {
@@ -103,7 +99,7 @@ export default function AttendanceHistory() {
     
     // Construct rows
     const rows = filteredStudents.map((s, i) => {
-      const rowData: any[] = [
+      const rowData: Array<string | number> = [
         i + 1,
         s.student_name,
         s.registration_number,
@@ -129,7 +125,7 @@ export default function AttendanceHistory() {
     
     rows.push(summaryRow);
 
-    exportCsv(`Attendance_${selectedClass}_${mode}.csv`, [headers, ...rows]);
+    exportCsv(`Attendance_${effectiveClass}_${mode}.csv`, [headers, ...rows]);
   };
 
   const exportPDF = () => {
@@ -142,7 +138,7 @@ export default function AttendanceHistory() {
     const headers = ['#', 'Student Name', 'Reg No.', ...sundays.map(d => format(parseISO(d), 'MMM dd')), 'Monthly %'];
     
     const body = filteredStudents.map((s, i) => {
-      const rowData: any[] = [
+      const rowData: Array<string | number> = [
         i + 1,
         s.student_name,
         s.registration_number,
@@ -164,8 +160,87 @@ export default function AttendanceHistory() {
       headStyles: { fillColor: [16, 185, 129] } // emerald-500
     });
     
-    doc.save(`Attendance_${selectedClass}_${mode}.pdf`);
+    doc.save(`Attendance_${effectiveClass}_${mode}.pdf`);
   };
+
+  if (pwaUi) {
+    return (
+      <div className="pwa-attendance-history">
+        <div className="pwa-page-heading">
+          <h1>Attendance History</h1>
+          <p>Student attendance report</p>
+        </div>
+
+        <section className="pwa-history-controls">
+          <label>
+            <span>Class</span>
+            <select value={effectiveClass} onChange={event => setSelectedClass(event.target.value)}>
+              {classes.length === 0 && <option value="">Loading classes...</option>}
+              {classes.map(schoolClass => <option key={schoolClass.id} value={schoolClass.id}>{schoolClass.name}</option>)}
+            </select>
+          </label>
+
+          <div className="pwa-history-segment" role="group" aria-label="Report period">
+            <button type="button" className={mode === 'monthly' ? 'is-active' : ''} onClick={() => setMode('monthly')}>Monthly</button>
+            <button type="button" className={mode === 'yearly' ? 'is-active' : ''} onClick={() => setMode('yearly')}>Yearly</button>
+          </div>
+
+          {mode === 'monthly' && (
+            <div className="pwa-history-month">
+              <button type="button" onClick={handlePrevMonth} aria-label="Previous month"><ChevronLeft /></button>
+              <strong>{format(currentMonth, 'MMMM yyyy')}</strong>
+              <button type="button" onClick={handleNextMonth} aria-label="Next month"><ChevronRight /></button>
+            </div>
+          )}
+
+          <label>
+            <span>Search students</span>
+            <input type="search" placeholder="Student name" value={searchQuery} onChange={event => setSearchQuery(event.target.value)} />
+          </label>
+        </section>
+
+        <section className="pwa-history-list" aria-live="polite">
+          {isLoading ? (
+            <div className="pwa-student-loading"><span /></div>
+          ) : !effectiveClass ? (
+            <p className="pwa-student-empty">Select a class to view attendance.</p>
+          ) : filteredStudents.length === 0 ? (
+            <p className="pwa-student-empty">No attendance records found</p>
+          ) : filteredStudents.map(student => {
+            const attendanceDates = Object.values(student.attendance).filter(Boolean).length;
+            const percentageTone = student.percentage >= 80 ? 'good' : student.percentage >= 60 ? 'warn' : 'bad';
+            return (
+              <Link key={student.student_id} to={`/students/${student.student_id}`} className="pwa-history-row">
+                <span className="pwa-history-avatar">{getInitials(student.student_name)}</span>
+                <span className="pwa-history-copy">
+                  <strong>{student.student_name}</strong>
+                  <small>{student.present_count} present</small>
+                  {mode === 'yearly' ? (
+                    <small>{student.present_count} present out of {attendanceDates} attendance dates</small>
+                  ) : (
+                    <span className="pwa-history-days">
+                      {sundays.map(date => {
+                        const status = student.attendance[date];
+                        return (
+                          <span key={date}>
+                            <small>{format(parseISO(date), 'dd')}</small>
+                            <b className={status === 'Present' ? 'present' : status === 'Absent' ? 'absent' : ''}>
+                              {status === 'Present' ? 'P' : status === 'Absent' ? 'A' : '–'}
+                            </b>
+                          </span>
+                        );
+                      })}
+                    </span>
+                  )}
+                </span>
+                <span className={`pwa-history-percent ${percentageTone}`}>{student.percentage}%</span>
+              </Link>
+            );
+          })}
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -186,7 +261,7 @@ export default function AttendanceHistory() {
           </div>
           
           <select
-            value={selectedClass}
+            value={effectiveClass}
             onChange={e => setSelectedClass(e.target.value)}
             className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-emerald-500 outline-none dark:text-white"
           >
@@ -266,7 +341,7 @@ export default function AttendanceHistory() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
             <p className="mt-4 text-sm text-slate-500">Loading attendance data...</p>
           </div>
-        ) : !selectedClass ? (
+        ) : !effectiveClass ? (
           <div className="text-center py-20 text-slate-500">Please select a class to view history.</div>
         ) : (
           <div className="overflow-x-auto">

@@ -1,12 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useToast } from '@/contexts/ToastContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { Save, Lock, KeyRound, Eye, EyeOff, Download, Smartphone, CheckCircle, Bell } from 'lucide-react';
+import { Save, Lock, KeyRound, Eye, EyeOff, Download, Smartphone, CheckCircle, Bell, Database, Info, LogOut } from 'lucide-react';
 import { canInstallPWA, isRunningAsPWA, promptPWAInstall, subscribeToPWAInstall } from '@/lib/pwaInstall';
 import { setWebPushEnabled, webPushEnabled } from '@/lib/pushNotifications';
+import { useTheme, type ThemeMode } from '@/contexts/ThemeContext';
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
 
 export default function Settings() {
   const { addToast } = useToast();
+  const { logout } = useAuth();
+  const { theme, setTheme } = useTheme();
   
   const [loading, setLoading] = useState(false);
   const [passwords, setPasswords] = useState({
@@ -41,8 +49,8 @@ export default function Settings() {
       addToast(enabled ? 'success' : 'info', enabled
         ? 'Sunday attendance reminders enabled'
         : 'Attendance reminders disabled');
-    } catch (error: any) {
-      addToast('error', error?.message || 'Could not update notifications');
+    } catch (error: unknown) {
+      addToast('error', getErrorMessage(error, 'Could not update notifications'));
     } finally {
       setNotificationLoading(false);
     }
@@ -89,16 +97,106 @@ export default function Settings() {
       if (error) throw error;
       addToast('success', 'Password updated successfully');
       setPasswords({ current_password: '', new_password: '', confirm_password: '' });
-    } catch (err: any) {
-      addToast('error', err?.message || 'Failed to update password');
+    } catch (error: unknown) {
+      addToast('error', getErrorMessage(error, 'Failed to update password'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    <div className="pwa-settings max-w-2xl mx-auto space-y-6">
+      <div className="pwa-only pwa-page-heading">
+        <h1>Settings</h1>
+        <p>Appearance, security and app details</p>
+      </div>
+      <section className="pwa-only pwa-appearance-card">
+        <h2>Appearance</h2>
+        <div>
+          {(['light', 'dark', 'system'] as ThemeMode[]).map(mode => (
+            <button type="button" key={mode} className={theme === mode ? 'is-active' : ''} onClick={() => setTheme(mode)}>
+              {mode[0].toUpperCase() + mode.slice(1)}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="pwa-only pwa-settings-native-details">
+        <div className="pwa-settings-native-row">
+          <span className="pwa-settings-native-icon"><Bell aria-hidden="true" /></span>
+          <div>
+            <strong>Sunday attendance reminders</strong>
+            <small>8:30 AM · 10:25 teacher · 10:40 admin</small>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={notificationsEnabled}
+            aria-label="Sunday attendance reminders"
+            disabled={notificationLoading}
+            onClick={toggleNotifications}
+            className={`pwa-settings-switch ${notificationsEnabled ? 'is-on' : ''}`}
+          ><span /></button>
+        </div>
+        <div className="pwa-settings-native-row">
+          <span className="pwa-settings-native-icon"><Database aria-hidden="true" /></span>
+          <div>
+            <strong>API Server</strong>
+            <small>https://ahadiya-student-management-system.onrender.com/api</small>
+          </div>
+        </div>
+      </section>
+
+      <form onSubmit={handleSubmit} className="pwa-only pwa-settings-native-password">
+        <h2>Change Password</h2>
+        <label htmlFor="pwa-current-password">Current password</label>
+        <input
+          id="pwa-current-password"
+          type="password"
+          name="current_password"
+          value={passwords.current_password}
+          onChange={handleChange}
+          autoComplete="current-password"
+          required
+        />
+        <label htmlFor="pwa-new-password">New password</label>
+        <input
+          id="pwa-new-password"
+          type="password"
+          name="new_password"
+          value={passwords.new_password}
+          onChange={handleChange}
+          autoComplete="new-password"
+          required
+        />
+        <label htmlFor="pwa-confirm-password">Confirm password</label>
+        <input
+          id="pwa-confirm-password"
+          type="password"
+          name="confirm_password"
+          value={passwords.confirm_password}
+          onChange={handleChange}
+          autoComplete="new-password"
+          required
+        />
+        <button
+          type="submit"
+          disabled={loading || !passwords.current_password || !passwords.new_password || !passwords.confirm_password}
+        >
+          <KeyRound aria-hidden="true" /> {loading ? 'Updating...' : 'Update Password'}
+        </button>
+      </form>
+
+      <section className="pwa-only pwa-settings-about">
+        <span className="pwa-settings-native-icon"><Info aria-hidden="true" /></span>
+        <div><strong>About</strong><small>Al-Meera Ahadiya Management System · Mobile 1.0.0</small></div>
+      </section>
+
+      <button type="button" className="pwa-only pwa-settings-signout" onClick={logout}>
+        <LogOut aria-hidden="true" /> Sign Out
+      </button>
+
+      <div className="pwa-install-card bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
             <Smartphone className="w-5 h-5" />
@@ -125,7 +223,7 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+      <div className="pwa-settings-desktop-card bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
             <Bell className="w-5 h-5" />
@@ -150,7 +248,7 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+      <div className="pwa-settings-desktop-card bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
             <Lock className="w-5 h-5" />

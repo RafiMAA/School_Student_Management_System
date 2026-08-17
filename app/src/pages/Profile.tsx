@@ -4,6 +4,25 @@ import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/apiClient';
 import { User, Phone, Save, AtSign, MapPin, BookOpen } from 'lucide-react';
 
+interface ProfileData {
+  full_name?: string;
+  email?: string;
+  contact?: string;
+  address?: string;
+  assigned_class?: string | null;
+}
+
+function getErrorDetail(error: unknown, fallback: string) {
+  if (typeof error === 'object' && error !== null && 'data' in error) {
+    const data = (error as { data?: unknown }).data;
+    if (typeof data === 'object' && data !== null && 'detail' in data) {
+      const detail = (data as { detail?: unknown }).detail;
+      if (typeof detail === 'string') return detail;
+    }
+  }
+  return fallback;
+}
+
 export default function Profile() {
   const { addToast } = useToast();
   const { user } = useAuth();
@@ -19,7 +38,7 @@ export default function Profile() {
 
   useEffect(() => {
     // Fetch latest profile details
-    api.get<any>('/auth/me').then(data => {
+    api.get<ProfileData>('/auth/me').then(data => {
       setFormData(prev => ({
         ...prev,
         full_name: data.full_name || '',
@@ -42,14 +61,14 @@ export default function Profile() {
     setLoading(true);
     
     // Only send password if it's not empty
-    const payload: any = {
+    const payload = {
       full_name: formData.full_name,
       contact: formData.contact,
       address: formData.address,
     };
     
     try {
-      const updatedUser = await api.put<any>('/auth/profile', payload);
+      const updatedUser = await api.put<ProfileData>('/auth/profile', payload);
       addToast('success', 'Profile updated successfully');
       
       // Update local storage so the next reload has fresh data instantly
@@ -62,15 +81,67 @@ export default function Profile() {
       setTimeout(() => {
         window.location.reload();
       }, 1000);
-    } catch (err: any) {
-      addToast('error', err?.data?.detail || 'Failed to update profile');
+    } catch (error: unknown) {
+      addToast('error', getErrorDetail(error, 'Failed to update profile'));
     } finally {
       setLoading(false);
     }
   };
 
+  const initials = (formData.full_name || user?.fullName || 'User')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((name) => name.charAt(0).toUpperCase())
+    .join('');
+
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="pwa-my-profile max-w-2xl mx-auto space-y-6">
+      <section className="pwa-only pwa-my-profile-native">
+        <div className="pwa-my-profile-hero">
+          <div>{initials}</div>
+          <h1>{formData.full_name || user?.fullName || 'User'}</h1>
+          <span>{user?.role || 'User'}</span>
+        </div>
+
+        {user?.role !== 'Principal' && (
+          <div className="pwa-my-profile-class">
+            <span><BookOpen aria-hidden="true" /></span>
+            <div><strong>Assigned class</strong><small>{assignedClass || 'No Class Assigned'}</small></div>
+          </div>
+        )}
+
+        <form id="pwa-profile-form" onSubmit={handleSubmit} className="pwa-my-profile-form">
+          <label htmlFor="pwa-profile-name">Full name</label>
+          <input id="pwa-profile-name" type="text" name="full_name" value={formData.full_name} onChange={handleChange} required />
+
+          <label htmlFor="pwa-profile-email">Email Address</label>
+          <input id="pwa-profile-email" type="email" name="email" value={formData.email} readOnly />
+
+          <label htmlFor="pwa-profile-contact">Contact number</label>
+          <input id="pwa-profile-contact" type="tel" name="contact" value={formData.contact} onChange={handleChange} required />
+
+          <label htmlFor="pwa-profile-address">Address</label>
+          <textarea
+            id="pwa-profile-address"
+            name="address"
+            value={formData.address}
+            onChange={(event) => setFormData({ ...formData, address: event.target.value })}
+            placeholder="Enter your address"
+          />
+        </form>
+
+        <button
+          type="submit"
+          form="pwa-profile-form"
+          className="pwa-my-profile-save"
+          disabled={loading || !formData.full_name || !formData.contact}
+        >
+          <Save aria-hidden="true" /> {loading ? 'Saving...' : 'Save Profile'}
+        </button>
+      </section>
+
+      <div className="pwa-profile-desktop">
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
@@ -180,6 +251,7 @@ export default function Profile() {
             </button>
           </div>
         </form>
+      </div>
       </div>
     </div>
   );

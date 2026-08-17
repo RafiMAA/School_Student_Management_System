@@ -42,7 +42,11 @@ export default function ClassList() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="pwa-class-list space-y-4">
+      <div className="pwa-only pwa-page-heading">
+        <h1>Classes</h1>
+        <p>{classes.length} active classes</p>
+      </div>
       <div className="flex justify-end">
         <button onClick={() => navigate('/classes/create')} className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors active:scale-95">
           <BookOpen className="w-4 h-4" /> Create Class

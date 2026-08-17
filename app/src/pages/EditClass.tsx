@@ -37,8 +37,8 @@ export default function EditClass() {
       if (cls) {
         setForm({
           grade: cls.grade.toString(),
-          medium: cls.medium as any,
-          genderType: cls.gender_type as any,
+          medium: cls.medium,
+          genderType: cls.gender_type,
           teacherId: cls.teacher_id || '',
         });
       } else {
@@ -96,8 +96,9 @@ export default function EditClass() {
       addToast('success', 'Class updated successfully');
       queryClient.invalidateQueries({ queryKey: ['classes'] });
       navigate('/classes');
-    } catch (err: any) {
-      addToast('error', err?.data?.detail || 'Failed to update class');
+    } catch (err: unknown) {
+      const apiError = err as { data?: { detail?: string } };
+      addToast('error', apiError.data?.detail || 'Failed to update class');
     } finally {
       setSubmitting(false);
     }
@@ -119,16 +120,21 @@ export default function EditClass() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
+    <div className="pwa-edit-class max-w-2xl mx-auto">
+      <div className="pwa-edit-class-desktop-heading flex items-center gap-3 mb-6">
         <button onClick={() => navigate('/classes')} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">Edit Class Details</h2>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm space-y-5">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="pwa-only pwa-page-heading pwa-edit-class-heading">
+        <h1>Edit Class</h1>
+        <p>Class structure and teacher assignment</p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="pwa-edit-class-form bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm space-y-5">
+        <div className="pwa-edit-class-fields grid grid-cols-1 md:grid-cols-2 gap-5">
           <div>
             <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Grade <span className="text-red-500">*</span></label>
             <select value={form.grade} onChange={e => handleChange('grade', e.target.value)} className={inputClass('grade', !form.grade)}>
@@ -162,13 +168,13 @@ export default function EditClass() {
             {errors.genderType && <p className="mt-1 text-xs text-red-500">{errors.genderType}</p>}
           </div>
 
-          <div>
+          <div className="pwa-edit-class-year">
             <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Academic Year</label>
             <input type="text" value={currentAcademicYear} disabled className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-500 text-sm" />
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Assign Teacher (Optional)</label>
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1"><span className="pwa-desktop-only">Assign Teacher (Optional)</span><span className="pwa-only">Assigned teacher</span></label>
             <select value={form.teacherId} onChange={e => handleChange('teacherId', e.target.value)} className={inputClass('teacherId', !form.teacherId)}>
               <option value="" className="text-slate-500">No teacher assigned</option>
               {teachers.map(t => (
@@ -178,7 +184,7 @@ export default function EditClass() {
           </div>
         </div>
 
-        <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
+        <div className="pwa-edit-class-submit flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
           <button type="submit" disabled={submitting} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white font-medium rounded-lg transition-colors active:scale-95">
             <Save className="w-4 h-4" /> {submitting ? 'Saving...' : 'Save Changes'}
           </button>

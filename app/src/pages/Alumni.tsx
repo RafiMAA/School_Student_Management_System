@@ -1,19 +1,32 @@
-import { useState } from 'react';
+import { useState, type Dispatch, type SetStateAction } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Plus } from 'lucide-react';
+import { Search, Plus, X, Save } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/contexts/ToastContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import api from '@/lib/apiClient';
 import type { Student } from '@/types';
+import { usePwaUi } from '@/hooks/use-pwa-ui';
 
 const currentYear = new Date().getFullYear();
 const graduationYears = Array.from({ length: 10 }, (_, index) => currentYear - index);
 const alumniFieldClass = 'w-full min-w-0 px-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500';
 
+function getErrorDetail(error: unknown, fallback: string) {
+  if (typeof error === 'object' && error !== null && 'data' in error) {
+    const data = (error as { data?: unknown }).data;
+    if (typeof data === 'object' && data !== null && 'detail' in data) {
+      const detail = (data as { detail?: unknown }).detail;
+      if (typeof detail === 'string') return detail;
+    }
+  }
+  return fallback;
+}
+
 export default function Alumni() {
   const navigate = useNavigate();
+  const pwaUi = usePwaUi();
   
   const [search, setSearch] = useState('');
   const [yearFilter, setYearFilter] = useState('');
@@ -51,7 +64,7 @@ export default function Alumni() {
   const totalRecords = data?.total || 0;
   const totalPages = data?.total_pages || 1;
 
-  const handleFilterChange = (setter: any, val: string) => {
+  const handleFilterChange = (setter: Dispatch<SetStateAction<string>>, val: string) => {
     setter(val);
     setPage(1);
   };
@@ -81,15 +94,80 @@ export default function Alumni() {
         parentName: '', parentName2: '', parentContact: '', parentContact2: '', ownContact: '',
         medium: 'Sinhala', joinedDate: '', graduationYear: ''
       });
-    } catch (err: any) {
-      addToast('error', err?.data?.detail || 'Failed to add alumni');
+    } catch (error: unknown) {
+      addToast('error', getErrorDetail(error, 'Failed to add alumni'));
     } finally {
       setSubmitting(false);
     }
   };
 
+  const openAdd = () => {
+    setForm((current) => ({
+      ...current,
+      graduationYear: current.graduationYear || currentYear.toString(),
+    }));
+    setShowAdd(true);
+  };
+
   return (
-    <div className="space-y-4">
+    <div className={`pwa-alumni space-y-4 ${showAdd ? 'is-adding' : ''}`}>
+      {showAdd && (
+        <section className="pwa-only pwa-alumni-native-add">
+          <div className="pwa-alumni-add-heading">
+            <div><h1>Alumni</h1><p>{totalRecords} graduated students</p></div>
+            <button type="button" onClick={() => setShowAdd(false)}><X aria-hidden="true" /> Cancel</button>
+          </div>
+
+          <form onSubmit={handleAdd} className="pwa-alumni-native-form">
+            <h2>Add Alumni</h2>
+            <label htmlFor="pwa-alumni-name">Full name *</label>
+            <input id="pwa-alumni-name" type="text" value={form.fullName} onChange={(event) => setForm({...form, fullName: event.target.value})} placeholder="Alumni full name" autoComplete="name" required />
+
+            <label>Gender *</label>
+            <div className="pwa-alumni-gender" role="group" aria-label="Gender">
+              {(['Male', 'Female'] as const).map((gender) => (
+                <button key={gender} type="button" className={form.gender === gender ? 'is-active' : ''} onClick={() => setForm({...form, gender})}>{gender}</button>
+              ))}
+            </div>
+
+            <label htmlFor="pwa-alumni-dob">Date of birth *</label>
+            <input id="pwa-alumni-dob" type="date" value={form.dateOfBirth} onChange={(event) => setForm({...form, dateOfBirth: event.target.value})} required />
+
+            <label htmlFor="pwa-alumni-parent">Parent or guardian name *</label>
+            <input id="pwa-alumni-parent" type="text" value={form.parentName} onChange={(event) => setForm({...form, parentName: event.target.value})} placeholder="Primary contact name" required />
+
+            <label htmlFor="pwa-alumni-parent-contact">Parent contact *</label>
+            <input id="pwa-alumni-parent-contact" type="tel" value={form.parentContact} onChange={(event) => setForm({...form, parentContact: event.target.value})} placeholder="Contact number" inputMode="tel" required />
+
+            <label htmlFor="pwa-alumni-parent-2">Secondary contact name</label>
+            <input id="pwa-alumni-parent-2" type="text" value={form.parentName2} onChange={(event) => setForm({...form, parentName2: event.target.value})} placeholder="Optional" />
+
+            <label htmlFor="pwa-alumni-contact-2">Secondary contact</label>
+            <input id="pwa-alumni-contact-2" type="tel" value={form.parentContact2} onChange={(event) => setForm({...form, parentContact2: event.target.value})} placeholder="Optional" inputMode="tel" />
+
+            <label htmlFor="pwa-alumni-own-contact">Own contact</label>
+            <input id="pwa-alumni-own-contact" type="tel" value={form.ownContact} onChange={(event) => setForm({...form, ownContact: event.target.value})} placeholder="Optional" inputMode="tel" />
+
+            <label htmlFor="pwa-alumni-medium">Medium *</label>
+            <select id="pwa-alumni-medium" value={form.medium} onChange={(event) => setForm({...form, medium: event.target.value as 'Sinhala' | 'Tamil'})}>
+              <option value="Sinhala">Sinhala</option>
+              <option value="Tamil">Tamil</option>
+            </select>
+
+            <label htmlFor="pwa-alumni-joined">Joined date *</label>
+            <input id="pwa-alumni-joined" type="date" value={form.joinedDate} onChange={(event) => setForm({...form, joinedDate: event.target.value})} required />
+
+            <label htmlFor="pwa-alumni-year">Graduated year *</label>
+            <input id="pwa-alumni-year" type="text" value={form.graduationYear} onChange={(event) => setForm({...form, graduationYear: event.target.value.replace(/\D/g, '').slice(0, 4)})} inputMode="numeric" pattern="[0-9]{4}" maxLength={4} required />
+
+            <button type="submit" className="pwa-alumni-native-save" disabled={submitting}>
+              <Save aria-hidden="true" /> {submitting ? 'Saving…' : 'Save Alumni'}
+            </button>
+          </form>
+        </section>
+      )}
+
+      <div className="pwa-alumni-main space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4 w-full sm:w-auto flex-1">
           <div className="relative w-full sm:w-72">
@@ -111,7 +189,7 @@ export default function Alumni() {
           {graduationYears.map(y => <option key={y} value={y.toString()}>{y}</option>)}
         </select>
         </div>
-        <button onClick={() => setShowAdd(true)} className="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-colors">
+        <button onClick={openAdd} className="pwa-alumni-add w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-colors">
           <Plus className="w-4 h-4" /> Add Alumni
         </button>
       </div>
@@ -131,7 +209,7 @@ export default function Alumni() {
               {loading ? (
                 <tr><td colSpan={4} className="text-center py-12"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600 mx-auto" /></td></tr>
               ) : alumni.map(student => (
-                <tr key={student.id} onClick={() => navigate(`/students/${student.id}`)} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer">
+                <tr key={student.id} onClick={() => navigate(`/students/alumni/${student.id}`)} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer">
                   <td className="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white">{student.full_name}</td>
                   <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{student.gender}</td>
                   <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{student.own_contact || student.parent_contact}</td>
@@ -162,7 +240,9 @@ export default function Alumni() {
         )}
       </div>
 
-      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+      </div>
+
+      <Dialog open={showAdd && !pwaUi} onOpenChange={setShowAdd}>
         <DialogContent className="max-h-[calc(100dvh-1rem)] max-w-xl overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Add Alumni</DialogTitle>
@@ -174,7 +254,7 @@ export default function Alumni() {
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Gender *</label>
-              <select value={form.gender} onChange={e => setForm({...form, gender: e.target.value as any})} className={alumniFieldClass}>
+              <select value={form.gender} onChange={e => setForm({...form, gender: e.target.value as 'Male' | 'Female'})} className={alumniFieldClass}>
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
               </select>
@@ -205,7 +285,7 @@ export default function Alumni() {
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Medium *</label>
-              <select value={form.medium} onChange={e => setForm({...form, medium: e.target.value as any})} className={alumniFieldClass}>
+              <select value={form.medium} onChange={e => setForm({...form, medium: e.target.value as 'Sinhala' | 'Tamil'})} className={alumniFieldClass}>
                 <option value="Sinhala">Sinhala</option>
                 <option value="Tamil">Tamil</option>
               </select>

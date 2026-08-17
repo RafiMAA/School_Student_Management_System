@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Plus, Search, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +18,7 @@ export default function Teachers() {
   const [loading, setLoading] = useState(true);
   
   const [showAdd, setShowAdd] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   
   const [form, setForm] = useState({
     fullName: '',
@@ -30,22 +31,22 @@ export default function Teachers() {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchTeachers = () => {
+  const fetchTeachers = useCallback(() => {
     setLoading(true);
     api.get<Teacher[]>('/teachers')
       .then(setTeachers)
       .catch(() => addToast('error', 'Failed to load teachers'))
       .finally(() => setLoading(false));
-  };
+  }, [addToast]);
 
-  const fetchClasses = () => {
+  const fetchClasses = useCallback(() => {
     api.get<Class[]>('/classes').then(setClasses).catch(console.error);
-  };
+  }, []);
 
   useEffect(() => {
     fetchTeachers();
     fetchClasses();
-  }, []);
+  }, [fetchClasses, fetchTeachers]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,16 +69,28 @@ export default function Teachers() {
       setShowAdd(false);
       setForm({ fullName: '', contact: '', address: '', email: '', password: '', role: 'Teacher', assignedClassId: '' });
       fetchTeachers();
-    } catch (err: any) {
-      addToast('error', err?.data?.detail || 'Failed to add teacher');
+    } catch (err: unknown) {
+      const apiError = err as { data?: { detail?: string } };
+      addToast('error', apiError.data?.detail || 'Failed to add teacher');
     } finally {
       setSubmitting(false);
     }
   };
 
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const filteredTeachers = normalizedSearch
+    ? teachers.filter((teacher) => [
+        teacher.full_name,
+        teacher.assigned_class,
+        teacher.contact,
+        teacher.email,
+        teacher.role,
+      ].some((value) => value?.toLowerCase().includes(normalizedSearch)))
+    : teachers;
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="pwa-teachers space-y-6">
+      <div className="pwa-teachers-desktop flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white">Teachers & Staff</h2>
         </div>
@@ -88,7 +101,55 @@ export default function Teachers() {
         )}
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+      <div className="pwa-only pwa-teachers-native-heading">
+        <div>
+          <h1>Teachers &amp; Staff</h1>
+          <p>{teachers.length} personnel</p>
+        </div>
+        {canOpenProfiles && (
+          <button type="button" onClick={() => setShowAdd(true)}><Plus /><span>Add</span></button>
+        )}
+      </div>
+
+      <div className="pwa-only pwa-teachers-search">
+        <Search aria-hidden="true" />
+        <input
+          type="search"
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          placeholder="Search teachers or staff"
+          aria-label="Search teachers or staff"
+        />
+        {searchQuery && (
+          <button type="button" onClick={() => setSearchQuery('')} aria-label="Clear search">
+            <X aria-hidden="true" />
+          </button>
+        )}
+      </div>
+
+      <section className="pwa-only pwa-teachers-native-list" aria-live="polite">
+        {loading ? (
+          <div className="pwa-student-loading"><span /></div>
+        ) : filteredTeachers.length === 0 ? (
+          <p className="pwa-student-empty">{searchQuery ? 'No matching teachers or staff' : 'No teachers or staff found'}</p>
+        ) : filteredTeachers.map(teacher => (
+          <button
+            type="button"
+            key={teacher.id}
+            disabled={!canOpenProfiles}
+            onClick={() => canOpenProfiles && navigate(`/admin/teachers/${teacher.id}`)}
+            className="pwa-teacher-native-row"
+          >
+            <span>
+              <strong>{teacher.full_name}</strong>
+              <small>{teacher.assigned_class || 'Unassigned'} · {teacher.contact || 'No contact'}</small>
+            </span>
+            <b>{teacher.role}</b>
+          </button>
+        ))}
+      </section>
+
+      <div className="pwa-teachers-desktop bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -146,7 +207,7 @@ export default function Teachers() {
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Role *</label>
-              <select value={form.role} onChange={e => setForm({...form, role: e.target.value as any})} className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+              <select value={form.role} onChange={e => setForm({...form, role: e.target.value as Teacher['role']})} className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
                 <option value="Teacher">Teacher</option>
                 {['Principal', 'Super Admin'].includes(user?.role || '') && <option value="Admin">Admin</option>}
                 {user?.role === 'Super Admin' && <option value="Super Admin">Super Admin</option>}

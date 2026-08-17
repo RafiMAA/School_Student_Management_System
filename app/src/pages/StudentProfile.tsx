@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, User, Calendar, BookOpen, Phone, GraduationCap, CheckCircle2, XCircle, FileText, Pencil, Trash2 } from 'lucide-react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '@/contexts/ToastContext';
 import { format, parseISO } from 'date-fns';
 import api from '@/lib/apiClient';
@@ -20,6 +20,7 @@ interface StudentAttendance {
 export default function StudentProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { addToast } = useToast();
   const { user } = useAuth();
 
@@ -81,6 +82,12 @@ export default function StudentProfile() {
       .finally(() => setLoading(false));
   }, [id, addToast]);
 
+  useEffect(() => {
+    if (student?.status === 'Alumni' && id && !pathname.startsWith('/students/alumni/')) {
+      navigate(`/students/alumni/${id}`, { replace: true });
+    }
+  }, [student?.status, id, pathname, navigate]);
+
   if (loading) {
     return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" /></div>;
   }
@@ -107,9 +114,89 @@ export default function StudentProfile() {
 
   const presentCount = history.filter(r => r.status === 'Present').length;
   const attendanceRate = history.length > 0 ? Math.round((presentCount / history.length) * 100) : 0;
+  const initials = student.full_name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0]?.toUpperCase())
+    .join('');
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <>
+    <div className="pwa-student-profile-native">
+        <section className="pwa-student-profile-hero">
+          <div className="pwa-student-profile-avatar">{initials}</div>
+          <h1>{student.full_name}</h1>
+          <span>{student.status}</span>
+        </section>
+
+        {student.status !== 'Alumni' && (
+          <section className="pwa-student-profile-stats">
+            <div><strong>{history.length}</strong><span>Sundays</span></div>
+            <div><strong>{presentCount}</strong><span>Present</span></div>
+            <div><strong>{attendanceRate}%</strong><span>Rate</span></div>
+          </section>
+        )}
+
+        <section className="pwa-student-profile-info">
+          <div className="pwa-student-profile-row">
+            <span><BookOpen /></span>
+            <div><strong>Class</strong><small>{student.status === 'Alumni' ? `Grade ${student.current_grade} · ${student.medium}` : student.class_name || 'Unassigned'}</small></div>
+          </div>
+          <div className="pwa-student-profile-row">
+            <span><Calendar /></span>
+            <div><strong>Date of birth</strong><small>{student.date_of_birth}</small></div>
+          </div>
+          <div className="pwa-student-profile-row">
+            <span><User /></span>
+            <div><strong>Parent</strong><small>{student.parent_name || 'Not provided'}</small></div>
+          </div>
+          <div className="pwa-student-profile-row">
+            <span><Phone /></span>
+            <div><strong>Parent contact</strong><small>{student.parent_contact || 'Not provided'}</small></div>
+          </div>
+          <div className="pwa-student-profile-row">
+            <span><Calendar /></span>
+            <div><strong>Joined</strong><small>{student.joined_date}</small></div>
+          </div>
+        </section>
+
+        {student.status !== 'Alumni' && (
+          <section className="pwa-student-yearly">
+            <h2>Yearly overview</h2>
+            <div className="pwa-student-yearly-card">
+              <div className="pwa-student-yearly-grid">
+                {yearlyOverview.months.map(month => (
+                  <div key={month.key} className="pwa-student-month">
+                    <span>{month.label}</span>
+                    {month.sundays.map(sunday => (
+                      <i
+                        key={sunday.date}
+                        className={sunday.status === 'Present' ? 'present' : sunday.status === 'Absent' ? 'absent' : 'empty'}
+                        title={`${sunday.date}: ${sunday.status || 'Not recorded'}`}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        <section className="pwa-student-report-card">
+          <header><FileText /><h2>Student Report</h2></header>
+          <StudentAchievements studentId={id!} />
+        </section>
+
+        <div className="pwa-student-profile-actions">
+          <button onClick={() => navigate(`/students/edit/${id}`)} className="edit"><Pencil /> Edit</button>
+          {user?.role === 'Super Admin' && (
+            <button onClick={() => setDeleteDialog(true)} className="delete"><Trash2 /> Delete</button>
+          )}
+        </div>
+      </div>
+
+    <div className="pwa-student-profile-desktop max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors">
@@ -333,5 +420,6 @@ export default function StudentProfile() {
         </Dialog>
       )}
     </div>
+    </>
   );
 }

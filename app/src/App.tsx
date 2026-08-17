@@ -40,6 +40,8 @@ const TeacherProfile = lazy(() => import('@/pages/TeacherProfile'));
 const AuditLogs = lazy(() => import('@/pages/AuditLogs'));
 const Profile = lazy(() => import('@/pages/Profile'));
 const Settings = lazy(() => import('@/pages/Settings'));
+const PwaAttendance = lazy(() => import('@/pages/PwaAttendance'));
+const PwaMore = lazy(() => import('@/pages/PwaMore'));
 
 function PageLoader() {
   return (
@@ -63,11 +65,13 @@ export default function App() {
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/settings" element={<Settings />} />
+                  <Route path="/attendance" element={<PwaAttendance />} />
                   <Route path="/attendance/mark" element={<MarkAttendance />} />
                   <Route path="/attendance/history" element={<AttendanceHistory />} />
                   <Route path="/students" element={<StudentList />} />
                   <Route path="/students/add" element={<AddStudent />} />
                   <Route path="/students/edit/:id" element={<EditStudent />} />
+                  <Route path="/students/alumni/:id" element={<StudentProfile />} />
                   <Route path="/students/:id" element={<StudentProfile />} />
                   <Route path="/students/alumni" element={<Alumni />} />
                   <Route path="/classes" element={<ClassList />} />
@@ -79,6 +83,7 @@ export default function App() {
                   <Route path="/admin/teachers" element={<RoleProtectedRoute allowedRoles={['Principal', 'Admin', 'Teacher', 'Super Admin']}><Teachers /></RoleProtectedRoute>} />
                   <Route path="/admin/teachers/:id" element={<RoleProtectedRoute allowedRoles={['Principal', 'Admin', 'Super Admin']}><TeacherProfile /></RoleProtectedRoute>} />
                   <Route path="/admin/audit-logs" element={<RoleProtectedRoute allowedRoles={['Principal', 'Admin', 'Super Admin']}><AuditLogs /></RoleProtectedRoute>} />
+                  <Route path="/more" element={<PwaMore />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

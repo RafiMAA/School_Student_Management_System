@@ -106,7 +106,7 @@ export default function AddStudent() {
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={() => navigate("/students")}
-          className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+          className="pwa-add-student-back p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
@@ -282,11 +282,11 @@ export default function AddStudent() {
           </div>
         </div>
 
-        <div className="flex justify-end pt-6 border-t border-slate-100 dark:border-slate-800">
+        <div className="pwa-save-student-action flex justify-end pt-6 border-t border-slate-100 dark:border-slate-800">
           <button
             type="submit"
             disabled={submitting}
-            className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white font-medium rounded-lg transition-colors active:scale-95"
+            className="pwa-save-student-button flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white font-medium rounded-lg transition-colors active:scale-95"
           >
             <Save className="w-4 h-4" />{" "}
             {submitting ? "Saving..." : "Save Student"}

@@ -1,13 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Pencil, Trash2, KeyRound, Shield, User as UserIcon, Phone, BookOpen, Clock } from 'lucide-react';
+import { ArrowLeft, Pencil, Trash2, KeyRound, Shield, User as UserIcon, Phone, BookOpen, Clock, ChevronDown, Check, MapPin, AtSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import api from '@/lib/apiClient';
 import type { Teacher, Class } from '@/types';
+
+function getErrorDetail(error: unknown, fallback: string) {
+  if (typeof error === 'object' && error !== null && 'data' in error) {
+    const data = (error as { data?: unknown }).data;
+    if (typeof data === 'object' && data !== null && 'detail' in data) {
+      const detail = (data as { detail?: unknown }).detail;
+      if (typeof detail === 'string') return detail;
+    }
+  }
+  return fallback;
+}
 
 export default function TeacherProfile() {
   const { id } = useParams<{ id: string }>();
@@ -19,6 +30,7 @@ export default function TeacherProfile() {
   const [showReset, setShowReset] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [showRoleSheet, setShowRoleSheet] = useState(false);
   
   const [editForm, setEditForm] = useState({ fullName: '', contact: '', address: '', assignedClassId: '' });
   const [resetPassword, setResetPassword] = useState('');
@@ -50,8 +62,8 @@ export default function TeacherProfile() {
       addToast('success', 'Password reset successfully');
       setShowReset(false);
       setResetPassword('');
-    } catch (err: any) {
-      addToast('error', err?.data?.detail || 'Failed to reset password');
+    } catch (error: unknown) {
+      addToast('error', getErrorDetail(error, 'Failed to reset password'));
     } finally {
       setSubmitting(false);
     }
@@ -72,8 +84,8 @@ export default function TeacherProfile() {
       setShowEdit(false);
       queryClient.invalidateQueries({ queryKey: ['teacher', id] });
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
-    } catch (err: any) {
-      addToast('error', err?.data?.detail || 'Failed to update teacher details');
+    } catch (error: unknown) {
+      addToast('error', getErrorDetail(error, 'Failed to update teacher details'));
     } finally {
       setSubmitting(false);
     }
@@ -87,13 +99,13 @@ export default function TeacherProfile() {
       addToast('success', 'Teacher deleted successfully');
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
       navigate('/admin/teachers');
-    } catch (err: any) {
-      addToast('error', err?.data?.detail || 'Failed to remove teacher');
+    } catch (error: unknown) {
+      addToast('error', getErrorDetail(error, 'Failed to remove teacher'));
       setSubmitting(false);
     }
   };
 
-  const handleRoleChange = async (newRole: string) => {
+  const handleRoleChange = async (newRole: Teacher['role']) => {
     if (!id || !teacher || newRole === teacher.role) return;
     setSubmitting(true);
     try {
@@ -104,8 +116,8 @@ export default function TeacherProfile() {
       addToast('success', `Role updated to ${newRole}`);
       queryClient.invalidateQueries({ queryKey: ['teacher', id] });
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
-    } catch (err: any) {
-      addToast('error', err?.data?.detail || 'Failed to update role');
+    } catch (error: unknown) {
+      addToast('error', getErrorDetail(error, 'Failed to update role'));
     } finally {
       setSubmitting(false);
     }
@@ -140,9 +152,90 @@ export default function TeacherProfile() {
                     !isProtectedUser && 
                     (teacher.role !== 'Super Admin' || isViewingUserSuperAdmin);
   const isSelf = user?.teacherId === teacher.id;
+  const roleOptions: Teacher['role'][] = ['Teacher', 'Admin'];
+  if (isViewingUserSuperAdmin || teacher.role === 'Super Admin') roleOptions.push('Super Admin');
+  if (teacher.role === 'Principal') roleOptions.push('Principal');
+  const initials = teacher.full_name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((name) => name.charAt(0).toUpperCase())
+    .join('');
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      <section className="pwa-only pwa-teacher-profile-native">
+        <div className="pwa-teacher-profile-hero">
+          <div className="pwa-teacher-profile-avatar">{initials}</div>
+          <h1>{teacher.full_name}</h1>
+          <span>{teacher.role}</span>
+        </div>
+
+        <div className="pwa-teacher-profile-info">
+          <div className="pwa-teacher-profile-row">
+            <span className="pwa-teacher-profile-icon"><Phone aria-hidden="true" /></span>
+            <div><strong>Contact</strong><small>{teacher.contact || 'Not provided'}</small></div>
+          </div>
+          <div className="pwa-teacher-profile-row">
+            <span className="pwa-teacher-profile-icon"><BookOpen aria-hidden="true" /></span>
+            <div><strong>Assigned class</strong><small>{teacher.assigned_class || 'Unassigned'}</small></div>
+          </div>
+          <div className="pwa-teacher-profile-row">
+            <span className="pwa-teacher-profile-icon"><MapPin aria-hidden="true" /></span>
+            <div><strong>Address</strong><small>{teacher.address || 'Not provided'}</small></div>
+          </div>
+          <div className="pwa-teacher-profile-row">
+            <span className="pwa-teacher-profile-icon"><AtSign aria-hidden="true" /></span>
+            <div><strong>Email</strong><small>{teacher.email || 'Not provided'}</small></div>
+          </div>
+        </div>
+
+        {hasAdminAccess && (
+          <div className="pwa-teacher-profile-controls">
+            <label>System role</label>
+            <button
+              type="button"
+              disabled={!canModify || submitting}
+              onClick={() => setShowRoleSheet(true)}
+              className="pwa-role-mobile"
+              aria-haspopup="dialog"
+            >
+              <span>{teacher.role}</span>
+              <ChevronDown aria-hidden="true" />
+            </button>
+
+            {canModify && (
+              <>
+                <label htmlFor="pwa-teacher-password">New password</label>
+                <input
+                  id="pwa-teacher-password"
+                  type="password"
+                  value={resetPassword}
+                  onChange={(event) => setResetPassword(event.target.value)}
+                  placeholder="At least 8 characters"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  className="pwa-teacher-reset"
+                  onClick={handleResetPassword}
+                  disabled={resetPassword.length < 8 || submitting}
+                >
+                  <KeyRound aria-hidden="true" /> Reset Password
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {canModify && !isSelf && (
+          <button type="button" className="pwa-teacher-delete" onClick={() => setShowDelete(true)}>
+            <Trash2 aria-hidden="true" /> Delete Staff Account
+          </button>
+        )}
+      </section>
+
+      <div className="pwa-teacher-profile-desktop space-y-6">
       <div className="flex items-center gap-3">
         <button onClick={() => navigate('/admin/teachers')} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors">
           <ArrowLeft className="w-5 h-5" />
@@ -250,15 +343,25 @@ export default function TeacherProfile() {
                         disabled={!canModify || submitting}
                         value={teacher.role}
                         onChange={(e) => {
-                          if (canModify) handleRoleChange(e.target.value);
+                          if (canModify) handleRoleChange(e.target.value as Teacher['role']);
                         }}
-                        className={`text-sm font-medium border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500 min-w-[140px] ${!canModify ? 'opacity-50 cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-500' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 cursor-pointer'}`}
+                        className={`pwa-role-desktop text-sm font-medium border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500 min-w-[140px] ${!canModify ? 'opacity-50 cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-500' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 cursor-pointer'}`}
                       >
                         <option value="Teacher">Teacher</option>
                         <option value="Admin">Admin</option>
                         {(isViewingUserSuperAdmin || teacher.role === 'Super Admin') && <option value="Super Admin">Super Admin</option>}
                         {teacher.role === 'Principal' && <option value="Principal">Principal</option>}
                       </select>
+                      <button
+                        type="button"
+                        disabled={!canModify || submitting}
+                        onClick={() => setShowRoleSheet(true)}
+                        className="pwa-role-mobile"
+                        aria-haspopup="dialog"
+                      >
+                        <span>{teacher.role}</span>
+                        <ChevronDown aria-hidden="true" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -266,6 +369,7 @@ export default function TeacherProfile() {
             </div>
           </div>
         </div>
+      </div>
       </div>
 
       {/* Reset Password Dialog */}
@@ -345,6 +449,42 @@ export default function TeacherProfile() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {showRoleSheet && (
+        <div className="pwa-role-sheet-layer" onClick={() => setShowRoleSheet(false)}>
+          <section
+            className="pwa-role-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pwa-role-sheet-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="pwa-role-sheet-handle" aria-hidden="true" />
+            <h2 id="pwa-role-sheet-title">System role</h2>
+            <div className="pwa-role-sheet-options">
+              {roleOptions.map((role) => (
+                <button
+                  key={role}
+                  type="button"
+                  disabled={submitting}
+                  className={teacher.role === role ? 'selected' : ''}
+                  onClick={() => {
+                    setShowRoleSheet(false);
+                    void handleRoleChange(role);
+                  }}
+                >
+                  <span>{role}</span>
+                  {teacher.role === role && (
+                    <span className="pwa-role-check" aria-label="Selected">
+                      <Check aria-hidden="true" />
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
 
 
     </div>

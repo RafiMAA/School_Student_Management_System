@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Users, GraduationCap, BookOpen, Award, CheckCircle, XCircle, Eye } from 'lucide-react';
+import { Users, GraduationCap, BookOpen, Award, CheckCircle, XCircle, Eye, Bell } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/apiClient';
@@ -55,11 +55,11 @@ function CircularProgress({ percentage, size = 120 }: { percentage: number; size
         <circle cx={size / 2} cy={size / 2} r={radius} fill="none" className="stroke-slate-200 dark:stroke-slate-700" strokeWidth={strokeWidth} />
         {presentPercentage > 0 && (
           <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={progressColor} strokeWidth={strokeWidth}
-            strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="butt" className="transition-all duration-1000 ease-out" />
+            strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="butt" className={`dashboard-progress-ring transition-all duration-1000 ease-out ${presentPercentage > 60 ? 'is-positive' : 'is-negative'}`} />
         )}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className={`text-2xl font-bold ${presentPercentage === 0 ? 'text-slate-500 dark:text-slate-400' : ''}`} style={presentPercentage > 0 ? { color: progressColor } : undefined}>{percentage}%</span>
+        <span className={`dashboard-progress-value text-2xl font-bold ${presentPercentage > 60 ? 'is-positive' : 'is-negative'} ${presentPercentage === 0 ? 'text-slate-500 dark:text-slate-400' : ''}`} style={presentPercentage > 0 ? { color: progressColor } : undefined}>{percentage}%</span>
         <span className="text-xs text-slate-500">Present</span>
       </div>
     </div>
@@ -138,7 +138,17 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="pwa-dashboard space-y-6">
+      <section className="pwa-only pwa-dashboard-hero">
+        <div className="pwa-dashboard-greeting">
+          <div className="pwa-dashboard-salam-row">
+            <p>Assalamu Alaikum,</p>
+            <button type="button" aria-label="Notifications"><Bell /></button>
+          </div>
+          <h1>{user?.fullName || 'User'}</h1>
+        </div>
+        <div className="pwa-dashboard-year">Academic Year {summary.current_academic_year}</div>
+      </section>
       {/* Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard title="Total Students" value={summary.total_students} icon={Users} onClick={() => navigate('/students')} />
