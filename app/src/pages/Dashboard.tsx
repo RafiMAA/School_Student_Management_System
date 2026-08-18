@@ -97,14 +97,6 @@ export default function Dashboard() {
 
 
 
-  const handleProtectedNavigation = (path: string) => {
-    if (user?.role === 'Principal' || user?.role === 'Admin' || user?.role === 'Super Admin') {
-      navigate(path);
-    } else {
-      addToast('error', 'Only admin can access this');
-    }
-  };
-
   const handleViewDetails = (classId: string) => {
     navigate(`/attendance/history?class_id=${classId}`);
   };
@@ -159,7 +151,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard title="Total Students" mobileTitle="Students" value={summary.total_students} icon={Users} onClick={() => navigate('/students')} />
         <StatCard title="Total Teachers" mobileTitle="Teachers" value={summary.total_teachers} icon={GraduationCap} onClick={() => navigate('/admin/teachers')} />
-        <StatCard title="Total Classes" mobileTitle="Classes" value={summary.total_classes} icon={BookOpen} onClick={() => handleProtectedNavigation('/classes')} />
+        <StatCard title="Total Classes" mobileTitle="Classes" value={summary.total_classes} icon={BookOpen} onClick={() => navigate('/classes')} />
         <StatCard title="Total Alumni" mobileTitle="Alumni" value={summary?.total_alumnis || 0} icon={Award} onClick={() => navigate('/students/alumni')} />
       </div>
 

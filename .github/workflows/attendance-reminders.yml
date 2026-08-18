@@ -27,10 +27,14 @@ jobs:
           fi
       - name: Send reminders
         env:
-          API_URL: ${{ secrets.AHADIYA_API_URL }}
+          API_URL: https://ahadiya-student-management-system.onrender.com
           CRON_SECRET: ${{ secrets.NOTIFICATION_CRON_SECRET }}
           PHASE: ${{ steps.phase.outputs.value }}
         run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::Repository secret NOTIFICATION_CRON_SECRET is missing. It must match the Render backend value."
+            exit 1
+          fi
           curl --fail-with-body --retry 3 --retry-all-errors \
             -X POST "$API_URL/api/notifications/attendance-reminders/$PHASE" \
             -H "X-Cron-Secret: $CRON_SECRET"

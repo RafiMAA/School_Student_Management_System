@@ -3,7 +3,7 @@ from typing import Optional
 import asyncpg
 
 from app.database import get_db
-from app.auth import get_current_user, require_admin, require_super_admin
+from app.auth import get_current_user, require_admin, require_any_auth, require_super_admin
 from app.models import (
     StudentCreate, StudentUpdate, StudentResponse, StudentTransfer, StudentGraduate, AlumniCreate, AchievementCreate, AchievementResponse
 )
@@ -103,7 +103,7 @@ async def list_students(
 async def create_student(
     body: StudentCreate,
     db: asyncpg.Pool = Depends(get_db),
-    user: dict = Depends(require_admin),
+    user: dict = Depends(require_any_auth),
 ):
     current_year = await db.fetchval("SELECT year_label FROM academic_years WHERE is_current = TRUE")
     if not current_year:
@@ -141,7 +141,7 @@ async def create_student(
 async def create_alumni(
     body: AlumniCreate,
     db: asyncpg.Pool = Depends(get_db),
-    user: dict = Depends(require_admin),
+    user: dict = Depends(require_any_auth),
 ):
     current_year = await db.fetchval("SELECT year_label FROM academic_years WHERE is_current = TRUE")
     if not current_year:

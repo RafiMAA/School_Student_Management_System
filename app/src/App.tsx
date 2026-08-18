@@ -75,8 +75,8 @@ export default function App() {
                   <Route path="/students/:id" element={<StudentProfile />} />
                   <Route path="/students/alumni" element={<Alumni />} />
                   <Route path="/classes" element={<ClassList />} />
-                  <Route path="/classes/create" element={<CreateClass />} />
-                  <Route path="/classes/edit/:id" element={<EditClass />} />
+                  <Route path="/classes/create" element={<RoleProtectedRoute allowedRoles={['Principal', 'Admin', 'Super Admin']}><CreateClass /></RoleProtectedRoute>} />
+                  <Route path="/classes/edit/:id" element={<RoleProtectedRoute allowedRoles={['Principal', 'Admin', 'Super Admin']}><EditClass /></RoleProtectedRoute>} />
                   <Route path="/classes/import" element={<ExcelImport />} />
                   <Route path="/academic-year/rules" element={<PromotionRules />} />
                   <Route path="/academic-year/preview" element={<PromotionPreview />} />

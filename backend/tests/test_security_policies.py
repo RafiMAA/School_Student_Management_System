@@ -11,13 +11,14 @@ from app.security_policies import (
     MAX_UPLOAD_BYTES,
     can_manage_role,
     validate_upload,
+    would_remove_last_super_admin,
 )
 
 
 class RoleHierarchyTests(unittest.TestCase):
-    def test_admin_can_manage_only_teachers(self):
+    def test_admin_can_manage_teachers_and_admins(self):
         self.assertTrue(can_manage_role("Admin", "Teacher"))
-        self.assertFalse(can_manage_role("Admin", "Admin"))
+        self.assertTrue(can_manage_role("Admin", "Admin"))
         self.assertFalse(can_manage_role("Admin", "Principal"))
         self.assertFalse(can_manage_role("Admin", "Super Admin"))
 
@@ -30,6 +31,15 @@ class RoleHierarchyTests(unittest.TestCase):
     def test_super_admin_cannot_create_or_replace_principal(self):
         self.assertTrue(can_manage_role("Super Admin", "Super Admin"))
         self.assertFalse(can_manage_role("Super Admin", "Principal"))
+
+    def test_last_super_admin_cannot_be_demoted_or_deleted(self):
+        self.assertTrue(would_remove_last_super_admin("Super Admin", "Admin", 0))
+        self.assertTrue(would_remove_last_super_admin("Super Admin", None, 0))
+
+    def test_super_admin_can_handover_when_another_exists(self):
+        self.assertFalse(would_remove_last_super_admin("Super Admin", "Admin", 1))
+        self.assertFalse(would_remove_last_super_admin("Super Admin", None, 1))
+        self.assertFalse(would_remove_last_super_admin("Admin", "Teacher", 0))
 
 
 class AttendancePayloadTests(unittest.TestCase):

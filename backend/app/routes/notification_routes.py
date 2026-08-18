@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import json
 import secrets
 from collections import defaultdict
@@ -9,6 +10,8 @@ from zoneinfo import ZoneInfo
 import asyncpg
 import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat, load_pem_private_key
 
 from app.auth import get_current_user
 from app.config import get_settings
@@ -19,12 +22,45 @@ router = APIRouter()
 COLOMBO = ZoneInfo("Asia/Colombo")
 
 
+def derive_vapid_public_key(private_key: str) -> str:
+    """Return the browser-safe public key for a raw or PEM VAPID private key."""
+    value = private_key.strip()
+    if not value:
+        return ""
+    try:
+        if "BEGIN" in value:
+            key = load_pem_private_key(value.encode(), password=None)
+        else:
+            padded = value + "=" * (-len(value) % 4)
+            raw = base64.urlsafe_b64decode(padded)
+            if len(raw) != 32:
+                return ""
+            key = ec.derive_private_key(int.from_bytes(raw, "big"), ec.SECP256R1())
+        public_bytes = key.public_key().public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)
+        return base64.urlsafe_b64encode(public_bytes).rstrip(b"=").decode()
+    except (TypeError, ValueError):
+        return ""
+
+
 def group_missing_classes_by_teacher(rows) -> dict:
     grouped = defaultdict(list)
     for row in rows:
         if row["teacher_id"]:
             grouped[row["teacher_id"]].append(row["class_name"])
     return dict(grouped)
+
+
+@router.get("/config")
+async def notification_config():
+    settings = get_settings()
+    public_key = derive_vapid_public_key(settings.vapid_private_key)
+    configured = bool(public_key and settings.vapid_claim_email)
+    return {
+        "web_push_configured": configured,
+        # A VAPID public key is intentionally public. The private key never
+        # leaves the backend environment.
+        "vapid_public_key": public_key if configured else None,
+    }
 
 
 @router.post("/subscriptions")

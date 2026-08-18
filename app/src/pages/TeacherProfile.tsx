@@ -147,13 +147,13 @@ export default function TeacherProfile() {
 
   const isViewingUserSuperAdmin = user?.role === 'Super Admin';
   const hasAdminAccess = ['Principal', 'Admin', 'Super Admin'].includes(user?.role || '');
-  const isProtectedUser = teacher.role === 'Principal' || teacher.email === 'rafimaa.23@example.com';
+  const isProtectedUser = teacher.role === 'Principal';
   const canModify = hasAdminAccess && 
                     !isProtectedUser && 
                     (teacher.role !== 'Super Admin' || isViewingUserSuperAdmin);
   const isSelf = user?.teacherId === teacher.id;
   const roleOptions: Teacher['role'][] = ['Teacher', 'Admin'];
-  if (isViewingUserSuperAdmin || teacher.role === 'Super Admin') roleOptions.push('Super Admin');
+  if (isViewingUserSuperAdmin) roleOptions.push('Super Admin');
   if (teacher.role === 'Principal') roleOptions.push('Principal');
   const initials = teacher.full_name
     .split(/\s+/)
@@ -339,19 +339,22 @@ export default function TeacherProfile() {
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Controls the user's access level in the system.</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <select 
-                        disabled={!canModify || submitting}
-                        value={teacher.role}
-                        onChange={(e) => {
-                          if (canModify) handleRoleChange(e.target.value as Teacher['role']);
-                        }}
-                        className={`pwa-role-desktop text-sm font-medium border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500 min-w-[140px] ${!canModify ? 'opacity-50 cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-500' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 cursor-pointer'}`}
-                      >
-                        <option value="Teacher">Teacher</option>
-                        <option value="Admin">Admin</option>
-                        {(isViewingUserSuperAdmin || teacher.role === 'Super Admin') && <option value="Super Admin">Super Admin</option>}
-                        {teacher.role === 'Principal' && <option value="Principal">Principal</option>}
-                      </select>
+                      {canModify ? (
+                        <select
+                          disabled={submitting}
+                          value={teacher.role}
+                          onChange={(e) => handleRoleChange(e.target.value as Teacher['role'])}
+                          className="pwa-role-desktop text-sm font-medium border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500 min-w-[140px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 cursor-pointer"
+                        >
+                          <option value="Teacher">Teacher</option>
+                          <option value="Admin">Admin</option>
+                          {isViewingUserSuperAdmin && <option value="Super Admin">Super Admin</option>}
+                        </select>
+                      ) : (
+                        <span className="pwa-role-desktop min-w-[140px] rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-800">
+                          {teacher.role}
+                        </span>
+                      )}
                       <button
                         type="button"
                         disabled={!canModify || submitting}

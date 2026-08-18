@@ -20,14 +20,17 @@ Configure the backend host with:
 - `VAPID_CLAIM_EMAIL`: a school contact in `mailto:name@example.com` format
 - `NOTIFICATION_CRON_SECRET`: a long random value, for example from `openssl rand -hex 32`
 
-Configure Vercel with `VITE_VAPID_PUBLIC_KEY` using the generated public key, then redeploy the PWA.
+The backend derives and publishes the matching public key to the PWA. No Vercel
+VAPID variable is required. `VITE_VAPID_PUBLIC_KEY` remains an optional fallback.
 
 ## 3. Scheduler
 
 In the GitHub repository settings, add Actions secrets:
 
-- `AHADIYA_API_URL`: backend origin without `/api`, for example `https://example.onrender.com`
 - `NOTIFICATION_CRON_SECRET`: exactly the same value configured on the backend
+
+The production backend URL is defined in the workflow, so an `AHADIYA_API_URL`
+repository secret is no longer required.
 
 The workflow `.github/workflows/attendance-reminders.yml` runs Sundays at these Sri Lanka times:
 

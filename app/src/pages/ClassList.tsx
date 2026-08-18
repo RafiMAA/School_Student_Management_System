@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/contexts/ToastContext';
+import { isAdmin, useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import api from '@/lib/apiClient';
 import type { Class } from '@/types';
@@ -10,7 +11,9 @@ import type { Class } from '@/types';
 export default function ClassList() {
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
+  const canManageClasses = isAdmin(user?.role);
   
   const [deleteDialog, setDeleteDialog] = useState<string | null>(null);
 
@@ -47,11 +50,13 @@ export default function ClassList() {
         <h1>Classes</h1>
         <p>{classes.length} active classes</p>
       </div>
-      <div className="flex justify-end">
-        <button onClick={() => navigate('/classes/create')} className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors active:scale-95">
-          <BookOpen className="w-4 h-4" /> Create Class
-        </button>
-      </div>
+      {canManageClasses && (
+        <div className="flex justify-end">
+          <button onClick={() => navigate('/classes/create')} className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors active:scale-95">
+            <BookOpen className="w-4 h-4" /> Create Class
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" /></div>
@@ -83,14 +88,16 @@ export default function ClassList() {
                 </div>
               </div>
 
-              <div className="flex gap-2">
-                <button onClick={() => navigate(`/classes/edit/${cls.id}`)} className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors">
-                  <Pencil className="w-3 h-3" /> Edit
-                </button>
-                <button onClick={() => setDeleteDialog(cls.id)} className="flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 transition-colors">
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              </div>
+              {canManageClasses && (
+                <div className="flex gap-2">
+                  <button onClick={() => navigate(`/classes/edit/${cls.id}`)} className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors">
+                    <Pencil className="w-3 h-3" /> Edit
+                  </button>
+                  <button onClick={() => setDeleteDialog(cls.id)} className="flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 transition-colors">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
             </div>
           ))}
           {classes.length === 0 && (
@@ -99,7 +106,7 @@ export default function ClassList() {
         </div>
       )}
 
-      <Dialog open={!!deleteDialog} onOpenChange={() => setDeleteDialog(null)}>
+      <Dialog open={canManageClasses && !!deleteDialog} onOpenChange={() => setDeleteDialog(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Class</DialogTitle>

@@ -7,16 +7,44 @@ from app.database import get_db
 from app.auth import require_admin, require_any_auth
 from app.models import TeacherCreate, TeacherUpdate, TeacherListResponse, TeacherResponse, PasswordReset
 from app.cache import cache_invalidate, TOTAL_TEACHERS
-from app.security_policies import can_manage_role
+from app.security_policies import can_manage_role, would_remove_last_super_admin
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+SUPER_ADMIN_ROLE_LOCK_KEY = 8_194_271
 
 def _require_role_management(actor_role: str, target_role: str) -> None:
     if not can_manage_role(actor_role, target_role):
         raise HTTPException(
             status_code=403,
             detail="You cannot manage an account with this role.",
+        )
+
+
+async def _require_super_admin_survives(
+    conn: asyncpg.Connection,
+    target_teacher_id: str,
+    current_role: str,
+    next_role: str | None,
+) -> None:
+    if current_role != "Super Admin" or next_role == "Super Admin":
+        return
+
+    # Serialize Super Admin demotions/deletions so concurrent requests cannot
+    # both pass the count and leave the system without a Super Admin.
+    await conn.execute("SELECT pg_advisory_xact_lock($1)", SUPER_ADMIN_ROLE_LOCK_KEY)
+    other_super_admins = await conn.fetchval(
+        """SELECT COUNT(*)
+           FROM admin_users
+           WHERE role = 'Super Admin'
+             AND is_active = TRUE
+             AND teacher_id IS DISTINCT FROM $1::uuid""",
+        target_teacher_id,
+    )
+    if would_remove_last_super_admin(current_role, next_role, other_super_admins):
+        raise HTTPException(
+            status_code=409,
+            detail="Create or promote another Super Admin before changing or deleting the last Super Admin.",
         )
 
 
@@ -198,9 +226,13 @@ async def update_teacher(
             for field, value in update_data.items():
                 if value is not None:
                     if field == "role":
-                        if target_user["username"] == "rafimaa.23":
-                            raise HTTPException(status_code=403, detail="Cannot modify Abdul Rafi's role")
                         _require_role_management(user["role"], value)
+                        await _require_super_admin_survives(
+                            conn,
+                            teacher_id,
+                            target_user["authorization_role"],
+                            value,
+                        )
                         updates.append(f"{field} = ${idx}::teacher_role")
                     else:
                         updates.append(f"{field} = ${idx}")
@@ -267,9 +299,6 @@ async def delete_teacher(
         raise HTTPException(status_code=404, detail="Teacher not found")
 
     _require_role_management(user["role"], target_user["authorization_role"])
-    if target_user["username"] == "rafimaa.23":
-        raise HTTPException(status_code=403, detail="Cannot delete Abdul Rafi account")
-
     current_year = await db.fetchrow("SELECT id, start_date, end_date FROM academic_years WHERE is_current = TRUE")
     if current_year:
         # Check if assigned to any class this year
@@ -305,6 +334,12 @@ async def delete_teacher(
 
     async with db.acquire() as conn:
         async with conn.transaction():
+            await _require_super_admin_survives(
+                conn,
+                teacher_id,
+                target_user["authorization_role"],
+                None,
+            )
             if admin_user:
                 # Delete admin_users first due to ON DELETE RESTRICT from auth.users
                 await conn.execute("DELETE FROM admin_users WHERE teacher_id = $1", teacher_id)

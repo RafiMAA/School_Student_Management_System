@@ -2,13 +2,32 @@ import { useEffect, useState } from 'react';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { Save, Lock, KeyRound, Eye, EyeOff, Download, Smartphone, CheckCircle, Bell, Database, Info, LogOut } from 'lucide-react';
-import { canInstallPWA, isRunningAsPWA, promptPWAInstall, subscribeToPWAInstall } from '@/lib/pwaInstall';
+import { Save, Lock, KeyRound, Eye, EyeOff, Download, Smartphone, CheckCircle, Bell, RefreshCw, Info, LogOut } from 'lucide-react';
+import {
+  applyPWAUpdate,
+  canInstallPWA,
+  checkForPWAUpdate,
+  currentPWABuild,
+  isRunningAsPWA,
+  promptPWAInstall,
+  subscribeToPWAInstall,
+  type PWABuildInfo,
+} from '@/lib/pwaInstall';
 import { setWebPushEnabled, webPushEnabled } from '@/lib/pushNotifications';
 import { useTheme, type ThemeMode } from '@/contexts/ThemeContext';
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
+}
+
+function formatPublishedDate(publishedAt: string) {
+  const date = new Date(publishedAt);
+  if (Number.isNaN(date.getTime())) return 'Unknown date';
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }).format(date);
 }
 
 export default function Settings() {
@@ -27,6 +46,10 @@ export default function Settings() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [canInstall, setCanInstall] = useState(canInstallPWA());
   const [isInstalled, setIsInstalled] = useState(isRunningAsPWA());
+  const [latestBuild, setLatestBuild] = useState<PWABuildInfo>(currentPWABuild);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [checkingUpdate, setCheckingUpdate] = useState(isRunningAsPWA());
+  const [updatingApp, setUpdatingApp] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notificationLoading, setNotificationLoading] = useState(true);
 
@@ -34,6 +57,35 @@ export default function Settings() {
     setCanInstall(canInstallPWA());
     setIsInstalled(isRunningAsPWA());
   }), []);
+
+  useEffect(() => {
+    if (!isInstalled) {
+      setCheckingUpdate(false);
+      return;
+    }
+
+    let active = true;
+    const refreshUpdateStatus = async () => {
+      setCheckingUpdate(true);
+      const status = await checkForPWAUpdate();
+      if (!active) return;
+      setLatestBuild(status.latest ?? status.current);
+      setUpdateAvailable(status.updateAvailable);
+      setCheckingUpdate(false);
+    };
+    const checkWhenVisible = () => {
+      if (document.visibilityState === 'visible') void refreshUpdateStatus();
+    };
+
+    void refreshUpdateStatus();
+    const interval = window.setInterval(refreshUpdateStatus, 5 * 60 * 1000);
+    document.addEventListener('visibilitychange', checkWhenVisible);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', checkWhenVisible);
+    };
+  }, [isInstalled]);
 
   useEffect(() => {
     webPushEnabled()
@@ -60,12 +112,24 @@ export default function Settings() {
     const outcome = await promptPWAInstall();
     if (outcome === 'accepted') {
       setCanInstall(false);
+      setIsInstalled(true);
       addToast('success', 'Ahadiya School app installed successfully');
     } else if (outcome === 'dismissed') {
       addToast('info', 'Installation was cancelled');
     } else {
       setCanInstall(false);
       addToast('info', 'Use the install icon in the address bar or your browser menu');
+    }
+  };
+
+  const handleAppUpdate = async () => {
+    setUpdatingApp(true);
+    addToast('info', 'Installing the latest app version…');
+    try {
+      await applyPWAUpdate();
+    } catch (error: unknown) {
+      setUpdatingApp(false);
+      addToast('error', getErrorMessage(error, 'Could not update the app. Please try again.'));
     }
   };
 
@@ -125,25 +189,46 @@ export default function Settings() {
         <div className="pwa-settings-native-row">
           <span className="pwa-settings-native-icon"><Bell aria-hidden="true" /></span>
           <div>
-            <strong>Sunday attendance reminders</strong>
-            <small>8:30 AM · 10:25 teacher · 10:40 admin</small>
+            <strong>Notifications</strong>
+            <small>Sunday attendance reminders and app update alerts</small>
           </div>
           <button
             type="button"
             role="switch"
             aria-checked={notificationsEnabled}
-            aria-label="Sunday attendance reminders"
+            aria-label="Notifications"
             disabled={notificationLoading}
             onClick={toggleNotifications}
             className={`pwa-settings-switch ${notificationsEnabled ? 'is-on' : ''}`}
           ><span /></button>
         </div>
-        <div className="pwa-settings-native-row">
-          <span className="pwa-settings-native-icon"><Database aria-hidden="true" /></span>
+        <div className="pwa-settings-native-row pwa-settings-app-row">
+          <span className="pwa-settings-native-icon">
+            {updateAvailable ? <RefreshCw aria-hidden="true" /> : <Smartphone aria-hidden="true" />}
+          </span>
           <div>
-            <strong>API Server</strong>
-            <small>https://ahadiya-student-management-system.onrender.com/api</small>
+            <strong>{!isInstalled ? 'Install PWA app' : updateAvailable ? 'App update available' : 'PWA app installed'}</strong>
+            <small>
+              {!isInstalled
+                ? canInstall ? 'Install it on this device for faster access' : 'Install from your browser menu or Add to Home Screen'
+                : `${updateAvailable ? 'New version' : 'Published'} ${formatPublishedDate(latestBuild.publishedAt)} · ${latestBuild.version}`}
+            </small>
           </div>
+          {!isInstalled ? (
+            <button type="button" className="pwa-settings-app-action" onClick={handleInstall}>
+              <Download aria-hidden="true" /> Install
+            </button>
+          ) : updateAvailable ? (
+            <button type="button" className="pwa-settings-app-action" disabled={updatingApp} onClick={handleAppUpdate}>
+              <RefreshCw aria-hidden="true" className={updatingApp ? 'is-spinning' : ''} />
+              {updatingApp ? 'Updating' : 'Update'}
+            </button>
+          ) : (
+            <span className="pwa-settings-app-installed" aria-label={checkingUpdate ? 'Checking for updates' : 'Installed'}>
+              {checkingUpdate ? <RefreshCw className="is-spinning" aria-hidden="true" /> : <CheckCircle aria-hidden="true" />}
+              {checkingUpdate ? 'Checking' : 'Installed'}
+            </span>
+          )}
         </div>
       </section>
 
@@ -189,7 +274,7 @@ export default function Settings() {
 
       <section className="pwa-only pwa-settings-about">
         <span className="pwa-settings-native-icon"><Info aria-hidden="true" /></span>
-        <div><strong>About</strong><small>Al-Meera Ahadiya Management System · Mobile 1.0.0</small></div>
+        <div><strong>About</strong><small>Al-Meera Ahadiya Management System · {currentPWABuild.version}</small></div>
       </section>
 
       <button type="button" className="pwa-only pwa-settings-signout" onClick={logout}>
@@ -229,8 +314,8 @@ export default function Settings() {
             <Bell className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Sunday Attendance Reminders</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">8:30 AM · 10:25 assigned teacher · 10:40 administrators</p>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Notifications</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Sunday attendance reminders and app update alerts</p>
           </div>
         </div>
         <div className="p-6 flex items-center justify-between gap-4">

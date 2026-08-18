@@ -5,7 +5,7 @@ from fastapi import HTTPException
 
 
 MANAGEABLE_ROLES = {
-    "Admin": {"Teacher"},
+    "Admin": {"Teacher", "Admin"},
     "Principal": {"Teacher", "Admin"},
     "Super Admin": {"Teacher", "Admin", "Super Admin"},
 }
@@ -16,6 +16,19 @@ MAX_XLSX_FILES = 1_000
 
 def can_manage_role(actor_role: str, target_role: str) -> bool:
     return target_role in MANAGEABLE_ROLES.get(actor_role, set())
+
+
+def would_remove_last_super_admin(
+    current_role: str,
+    next_role: str | None,
+    other_active_super_admins: int,
+) -> bool:
+    """Return True when a role change/delete would leave no active Super Admin."""
+    return (
+        current_role == "Super Admin"
+        and next_role != "Super Admin"
+        and other_active_super_admins < 1
+    )
 
 
 def validate_upload(content: bytes, filename: str) -> None:

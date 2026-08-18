@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check } from 'lucide-react';
 
 interface SheetOption {
@@ -43,6 +43,26 @@ function getTitle(select: HTMLSelectElement) {
 
 export default function PwaSelectSheet() {
   const [sheet, setSheet] = useState<SheetState | null>(null);
+  const hasSheetHistoryEntry = useRef(false);
+
+  const dismissSheet = useCallback(() => {
+    setSheet(null);
+    if (hasSheetHistoryEntry.current) {
+      hasSheetHistoryEntry.current = false;
+      window.history.back();
+    }
+  }, []);
+
+  useEffect(() => {
+    const closeFromBrowserBack = () => {
+      if (!hasSheetHistoryEntry.current) return;
+      hasSheetHistoryEntry.current = false;
+      setSheet(null);
+    };
+
+    window.addEventListener('popstate', closeFromBrowserBack);
+    return () => window.removeEventListener('popstate', closeFromBrowserBack);
+  }, []);
 
   useEffect(() => {
     const openSelect = (select: HTMLSelectElement) => {
@@ -50,20 +70,39 @@ export default function PwaSelectSheet() {
       const options = Array.from(select.options)
         .filter(option => !option.disabled && !option.hidden)
         .map(option => ({ value: option.value, label: option.textContent?.trim() || option.label }));
+      if (!hasSheetHistoryEntry.current) {
+        window.history.pushState(
+          { ...(window.history.state || {}), ahadiyaOverlay: 'select-sheet' },
+          '',
+          window.location.href,
+        );
+        hasSheetHistoryEntry.current = true;
+      }
       setSheet({ select, title: getTitle(select), value: select.value, options });
     };
 
-    const handlePointerDown = (event: PointerEvent) => {
-      const select = (event.target as Element | null)?.closest('select');
-      if (!(select instanceof HTMLSelectElement)) return;
-      event.preventDefault();
-      openSelect(select);
-    };
-
     const handleClick = (event: MouseEvent) => {
-      const select = (event.target as Element | null)?.closest('select');
+      const target = event.target as Element | null;
+      const dateInput = target?.closest('input[type="date"]');
+      if (dateInput instanceof HTMLInputElement && typeof dateInput.showPicker === 'function') {
+        try {
+          // Invoke the Android picker exactly once from the trusted click.
+          // Preventing the browser's second default invocation avoids the
+          // open-then-immediately-close behavior seen in installed PWAs.
+          dateInput.showPicker();
+          event.preventDefault();
+          event.stopPropagation();
+        } catch {
+          // Fall through to the browser's native default when showPicker is
+          // unavailable for the current platform or activation state.
+        }
+        return;
+      }
+
+      const select = target?.closest('select');
       if (!(select instanceof HTMLSelectElement)) return;
       event.preventDefault();
+      event.stopPropagation();
       openSelect(select);
     };
 
@@ -73,11 +112,9 @@ export default function PwaSelectSheet() {
       openSelect(event.target);
     };
 
-    document.addEventListener('pointerdown', handlePointerDown, true);
     document.addEventListener('click', handleClick, true);
     document.addEventListener('keydown', handleKeyDown, true);
     return () => {
-      document.removeEventListener('pointerdown', handlePointerDown, true);
       document.removeEventListener('click', handleClick, true);
       document.removeEventListener('keydown', handleKeyDown, true);
     };
@@ -88,32 +125,32 @@ export default function PwaSelectSheet() {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSheet(null);
+      if (event.key === 'Escape') dismissSheet();
     };
     window.addEventListener('keydown', closeOnEscape);
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', closeOnEscape);
     };
-  }, [sheet]);
+  }, [dismissSheet, sheet]);
 
   const choose = (value: string) => {
     if (!sheet?.select.isConnected) {
-      setSheet(null);
+      dismissSheet();
       return;
     }
     const valueSetter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
     valueSetter?.call(sheet.select, value);
     sheet.select.dispatchEvent(new Event('change', { bubbles: true }));
     sheet.select.focus({ preventScroll: true });
-    setSheet(null);
+    dismissSheet();
   };
 
   if (!sheet) return null;
 
   return (
     <div className="pwa-select-sheet-layer" role="presentation" onMouseDown={event => {
-      if (event.target === event.currentTarget) setSheet(null);
+      if (event.target === event.currentTarget) dismissSheet();
     }}>
       <section className="pwa-select-sheet" role="dialog" aria-modal="true" aria-label={sheet.title}>
         <div className="pwa-select-sheet-handle" />

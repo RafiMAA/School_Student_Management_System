@@ -209,7 +209,7 @@ export default function Teachers() {
               <label className="block text-xs font-medium text-slate-500 mb-1">Role *</label>
               <select value={form.role} onChange={e => setForm({...form, role: e.target.value as Teacher['role']})} className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
                 <option value="Teacher">Teacher</option>
-                {['Principal', 'Super Admin'].includes(user?.role || '') && <option value="Admin">Admin</option>}
+                {['Admin', 'Principal', 'Super Admin'].includes(user?.role || '') && <option value="Admin">Admin</option>}
                 {user?.role === 'Super Admin' && <option value="Super Admin">Super Admin</option>}
               </select>
             </div>
