@@ -106,15 +106,31 @@ export default function PwaSelectSheet() {
       openSelect(select);
     };
 
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!event.isPrimary || event.button !== 0) return;
+      const target = event.target as Element | null;
+      const select = target?.closest('select');
+      if (!(select instanceof HTMLSelectElement) || select.disabled) return;
+
+      // Android opens its native select UI before the later click event. Stop
+      // that default action at the start of the gesture and open only our
+      // bottom sheet.
+      event.preventDefault();
+      event.stopPropagation();
+      openSelect(select);
+    };
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!(event.target instanceof HTMLSelectElement) || !['Enter', ' '].includes(event.key)) return;
       event.preventDefault();
       openSelect(event.target);
     };
 
+    document.addEventListener('pointerdown', handlePointerDown, true);
     document.addEventListener('click', handleClick, true);
     document.addEventListener('keydown', handleKeyDown, true);
     return () => {
+      document.removeEventListener('pointerdown', handlePointerDown, true);
       document.removeEventListener('click', handleClick, true);
       document.removeEventListener('keydown', handleKeyDown, true);
     };

@@ -30,6 +30,21 @@ async function getPublicKey() {
   return resolvedPublicKey;
 }
 
+export async function webPushAvailable() {
+  if (
+    !('Notification' in window)
+    || !('serviceWorker' in navigator)
+    || !('PushManager' in window)
+  ) return false;
+
+  try {
+    await getPublicKey();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function keysMatch(subscription: PushSubscription, publicKey: Uint8Array<ArrayBuffer>) {
   const existingKey = subscription.options.applicationServerKey;
   if (!existingKey) return false;

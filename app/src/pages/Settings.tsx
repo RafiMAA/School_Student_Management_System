@@ -13,7 +13,7 @@ import {
   subscribeToPWAInstall,
   type PWABuildInfo,
 } from '@/lib/pwaInstall';
-import { setWebPushEnabled, webPushEnabled } from '@/lib/pushNotifications';
+import { setWebPushEnabled, webPushAvailable, webPushEnabled } from '@/lib/pushNotifications';
 import { useTheme, type ThemeMode } from '@/contexts/ThemeContext';
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -51,6 +51,7 @@ export default function Settings() {
   const [checkingUpdate, setCheckingUpdate] = useState(isRunningAsPWA());
   const [updatingApp, setUpdatingApp] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notificationsAvailable, setNotificationsAvailable] = useState(false);
   const [notificationLoading, setNotificationLoading] = useState(true);
 
   useEffect(() => subscribeToPWAInstall(() => {
@@ -88,8 +89,11 @@ export default function Settings() {
   }, [isInstalled]);
 
   useEffect(() => {
-    webPushEnabled()
-      .then(setNotificationsEnabled)
+    Promise.all([webPushEnabled(), webPushAvailable()])
+      .then(([enabled, available]) => {
+        setNotificationsEnabled(enabled);
+        setNotificationsAvailable(available);
+      })
       .finally(() => setNotificationLoading(false));
   }, []);
 
@@ -190,14 +194,18 @@ export default function Settings() {
           <span className="pwa-settings-native-icon"><Bell aria-hidden="true" /></span>
           <div>
             <strong>Notifications</strong>
-            <small>Sunday attendance reminders and app update alerts</small>
+            <small>{notificationLoading
+              ? 'Checking notification availability…'
+              : notificationsAvailable
+                ? 'Sunday attendance reminders and app update alerts'
+                : 'Notifications are temporarily unavailable'}</small>
           </div>
           <button
             type="button"
             role="switch"
             aria-checked={notificationsEnabled}
             aria-label="Notifications"
-            disabled={notificationLoading}
+            disabled={notificationLoading || !notificationsAvailable}
             onClick={toggleNotifications}
             className={`pwa-settings-switch ${notificationsEnabled ? 'is-on' : ''}`}
           ><span /></button>
@@ -207,7 +215,7 @@ export default function Settings() {
             {updateAvailable ? <RefreshCw aria-hidden="true" /> : <Smartphone aria-hidden="true" />}
           </span>
           <div>
-            <strong>{!isInstalled ? 'Install PWA app' : updateAvailable ? 'App update available' : 'PWA app installed'}</strong>
+            <strong>{!isInstalled ? 'Install the app' : updateAvailable ? 'App update available' : 'The app is installed'}</strong>
             <small>
               {!isInstalled
                 ? canInstall ? 'Install it on this device for faster access' : 'Install from your browser menu or Add to Home Screen'
@@ -324,11 +332,11 @@ export default function Settings() {
           </p>
           <button
             type="button"
-            disabled={notificationLoading}
+            disabled={notificationLoading || !notificationsAvailable}
             onClick={toggleNotifications}
             className={`shrink-0 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50 ${notificationsEnabled ? 'bg-slate-600 hover:bg-slate-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
           >
-            {notificationLoading ? 'Checking…' : notificationsEnabled ? 'Disable' : 'Enable'}
+            {notificationLoading ? 'Checking…' : !notificationsAvailable ? 'Unavailable' : notificationsEnabled ? 'Disable' : 'Enable'}
           </button>
         </div>
       </div>
