@@ -309,14 +309,14 @@
 .pwa-ui .pwa-dashboard { gap: 14px; }
 .pwa-ui .pwa-dashboard-hero {
   position: relative;
-  min-height: 132px;
+  min-height: 118px;
   justify-content: flex-end;
   flex-direction: column;
-  margin: calc(-1 * max(16px, env(safe-area-inset-top))) -16px 20px;
-  padding: calc(12px + env(safe-area-inset-top)) 20px 18px;
+  margin: calc(-1 * max(16px, env(safe-area-inset-top))) -16px 18px;
+  padding: calc(8px + env(safe-area-inset-top)) 20px 14px;
   color: white;
   background: linear-gradient(150deg, #009b55, #20b879);
-  border-radius: 0 0 32px 32px;
+  border-radius: 0 0 36px 36px;
   overflow: hidden;
 }
 .pwa-ui .pwa-dashboard-hero::after {
@@ -328,18 +328,21 @@
   transform: rotate(-7deg);
 }
 .pwa-ui .pwa-dashboard-greeting { position: relative; z-index: 2; width: 100%; }
-.pwa-ui .pwa-dashboard-salam-row { display: flex; min-height: 38px; align-items: center; justify-content: space-between; }
+.pwa-ui .pwa-dashboard-salam-row { display: flex; min-height: 34px; align-items: center; justify-content: space-between; }
 .pwa-ui .pwa-dashboard-hero p { font-size: 15px; font-weight: 600; }
-.pwa-ui .pwa-dashboard-hero h1 { max-width: calc(100% - 130px); margin-top: 1px; overflow: hidden; font-size: 27px; font-weight: 800; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
-.pwa-ui .pwa-dashboard-year { position: absolute; z-index: 2; right: 20px; bottom: 21px; font-size: 12px; font-weight: 800; }
-.pwa-ui .pwa-dashboard-hero button { display: grid; width: 38px; height: 38px; min-height: 38px; place-items: center; border-radius: 999px; background: rgb(255 255 255 / 15%); }
+.pwa-ui .pwa-dashboard-hero h1 { max-width: calc(100% - 130px); margin-top: 0; overflow: hidden; font-size: 27px; font-weight: 800; line-height: 1.05; text-overflow: ellipsis; white-space: nowrap; }
+.pwa-ui .pwa-dashboard-year { position: absolute; z-index: 2; right: 20px; bottom: 17px; font-size: 12px; font-weight: 800; }
+.pwa-ui .pwa-dashboard-hero button { display: grid; width: 36px; height: 36px; min-height: 36px; place-items: center; border-radius: 999px; background: rgb(255 255 255 / 15%); }
 .pwa-ui .pwa-dashboard-hero svg { width: 19px; height: 19px; }
 .pwa-ui .pwa-dashboard > .grid:first-of-type { gap: 10px; }
-.pwa-ui .pwa-dashboard > .grid:first-of-type > div { min-height: 145px; padding: 16px; }
+.pwa-ui .pwa-dashboard > .grid:first-of-type > div { position: relative; min-height: 155px; padding: 14px; border-radius: 20px; }
 .pwa-ui .pwa-dashboard > .grid:first-of-type > div > div { height: 100%; align-items: flex-start; flex-direction: column; justify-content: space-between; }
-.pwa-ui .pwa-dashboard > .grid:first-of-type > div > div > div:first-child { order: 2; }
-.pwa-ui .pwa-dashboard > .grid:first-of-type > div > div > div:last-child { order: 1; width: 46px; height: 46px; border-radius: 13px; }
-.pwa-ui .pwa-dashboard > .grid:first-of-type p:last-child { font-size: 28px; line-height: 1; }
+.pwa-ui .pwa-dashboard .pwa-stat-copy { display: flex; order: 2; flex-direction: column; gap: 1px; }
+.pwa-ui .pwa-dashboard .pwa-stat-label { order: 2; margin: 0; color: var(--pwa-muted); font-size: 15px; line-height: 1.2; font-weight: 500; }
+.pwa-ui .pwa-dashboard .pwa-stat-value { order: 1; margin: 0; color: var(--pwa-text); font-size: 30px; line-height: 35px; font-weight: 900; }
+.pwa-ui .pwa-dashboard .pwa-stat-icon { order: 1; width: 47px; height: 47px; border-radius: 15px; }
+.pwa-ui .pwa-dashboard .pwa-stat-icon svg { width: 25px; height: 25px; }
+.pwa-ui .pwa-dashboard .pwa-stat-chevron { position: absolute; right: 14px; bottom: 31px; display: block; width: 22px; height: 22px; color: var(--pwa-muted); stroke-width: 2.5; }
 .pwa-ui .pwa-dashboard > .grid:nth-of-type(2) { gap: 14px; }
 .pwa-ui .pwa-dashboard > .grid:nth-of-type(2) > div { padding: 18px; }
 .pwa-ui .pwa-dashboard > .grid:nth-of-type(2) > div:first-child > div { gap: 14px; }

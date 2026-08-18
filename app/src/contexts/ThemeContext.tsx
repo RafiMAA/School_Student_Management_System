@@ -40,9 +40,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', resolvedTheme === 'dark');
     document.documentElement.style.colorScheme = resolvedTheme;
+    const pwaThemeColor = document.documentElement.classList.contains('pwa-ui')
+      ? '#009b55'
+      : resolvedTheme === 'dark' ? '#06101f' : '#f8fafc';
     document.querySelector<HTMLMetaElement>('#theme-color-meta')?.setAttribute(
       'content',
-      resolvedTheme === 'dark' ? '#06101f' : '#f8fafc',
+      pwaThemeColor,
     );
     localStorage.setItem(THEME_KEY, theme);
     localStorage.removeItem('ahadiya-theme');

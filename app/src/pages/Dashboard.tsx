@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Users, GraduationCap, BookOpen, Award, CheckCircle, XCircle, Eye, Bell } from 'lucide-react';
+import { Users, GraduationCap, BookOpen, Award, CheckCircle, XCircle, Eye, Bell, ChevronRight } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/apiClient';
@@ -26,17 +26,21 @@ interface BootstrapData {
   academic_year: { year_label: string };
   summary: SummaryData;
 }
-function StatCard({ title, value, icon: Icon, onClick }: { title: string; value: string | number; icon: React.ElementType; onClick?: () => void }) {
+function StatCard({ title, mobileTitle, value, icon: Icon, onClick }: { title: string; mobileTitle: string; value: string | number; icon: React.ElementType; onClick?: () => void }) {
   return (
-    <div onClick={onClick} className={`bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-4 sm:p-5 shadow-sm ${onClick ? 'cursor-pointer hover:shadow-md transition-all hover:-translate-y-0.5' : ''}`}>
+    <div onClick={onClick} className={`pwa-stat-card bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-4 sm:p-5 shadow-sm ${onClick ? 'cursor-pointer hover:shadow-md transition-all hover:-translate-y-0.5' : ''}`}>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
-        <div className="order-2 sm:order-1">
-          <p className="text-[11px] sm:text-sm text-slate-500 dark:text-slate-400 font-medium leading-tight">{title}</p>
-          <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-0.5 sm:mt-1">{value}</p>
+        <div className="pwa-stat-copy order-2 sm:order-1">
+          <p className="pwa-stat-label text-[11px] sm:text-sm text-slate-500 dark:text-slate-400 font-medium leading-tight">
+            <span className="pwa-desktop-only">{title}</span>
+            <span className="pwa-only">{mobileTitle}</span>
+          </p>
+          <p className="pwa-stat-value text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-0.5 sm:mt-1">{value}</p>
         </div>
-        <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center shrink-0 order-1 sm:order-2 bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 dark:shadow-inner dark:shadow-emerald-900/40">
+        <div className="pwa-stat-icon w-8 h-8 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center shrink-0 order-1 sm:order-2 bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 dark:shadow-inner dark:shadow-emerald-900/40">
           <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
         </div>
+        <ChevronRight className="pwa-only pwa-stat-chevron" aria-hidden="true" />
       </div>
     </div>
   );
@@ -151,10 +155,10 @@ export default function Dashboard() {
       </section>
       {/* Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard title="Total Students" value={summary.total_students} icon={Users} onClick={() => navigate('/students')} />
-        <StatCard title="Total Teachers" value={summary.total_teachers} icon={GraduationCap} onClick={() => navigate('/admin/teachers')} />
-        <StatCard title="Total Classes" value={summary.total_classes} icon={BookOpen} onClick={() => handleProtectedNavigation('/classes')} />
-        <StatCard title="Total Alumnis" value={summary?.total_alumnis || 0} icon={Award} onClick={() => navigate('/students/alumni')} />
+        <StatCard title="Total Students" mobileTitle="Students" value={summary.total_students} icon={Users} onClick={() => navigate('/students')} />
+        <StatCard title="Total Teachers" mobileTitle="Teachers" value={summary.total_teachers} icon={GraduationCap} onClick={() => navigate('/admin/teachers')} />
+        <StatCard title="Total Classes" mobileTitle="Classes" value={summary.total_classes} icon={BookOpen} onClick={() => handleProtectedNavigation('/classes')} />
+        <StatCard title="Total Alumni" mobileTitle="Alumni" value={summary?.total_alumnis || 0} icon={Award} onClick={() => navigate('/students/alumni')} />
       </div>
 
       {/* Attendance Summary + Completion Tracker */}
