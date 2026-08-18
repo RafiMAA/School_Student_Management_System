@@ -310,7 +310,7 @@
 .pwa-ui .pwa-dashboard-hero {
   position: relative;
   min-height: 118px;
-  justify-content: flex-end;
+  justify-content: center;
   flex-direction: column;
   margin: calc(-1 * max(16px, env(safe-area-inset-top))) -16px 18px;
   padding: calc(8px + env(safe-area-inset-top)) 20px 14px;
@@ -329,9 +329,10 @@
 }
 .pwa-ui .pwa-dashboard-greeting { position: relative; z-index: 2; width: 100%; }
 .pwa-ui .pwa-dashboard-salam-row { display: flex; min-height: 34px; align-items: center; justify-content: space-between; }
+.pwa-ui .pwa-dashboard-name-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
 .pwa-ui .pwa-dashboard-hero p { font-size: 15px; font-weight: 600; }
 .pwa-ui .pwa-dashboard-hero h1 { max-width: calc(100% - 130px); margin-top: 0; overflow: hidden; font-size: 27px; font-weight: 800; line-height: 1.05; text-overflow: ellipsis; white-space: nowrap; }
-.pwa-ui .pwa-dashboard-year { position: absolute; z-index: 2; right: 20px; bottom: 17px; font-size: 12px; font-weight: 800; }
+.pwa-ui .pwa-dashboard-year { flex: 0 0 auto; padding-bottom: 2px; font-size: 12px; line-height: 1.1; font-weight: 800; white-space: nowrap; }
 .pwa-ui .pwa-dashboard-hero button { display: grid; width: 36px; height: 36px; min-height: 36px; place-items: center; border-radius: 999px; background: rgb(255 255 255 / 15%); }
 .pwa-ui .pwa-dashboard-hero svg { width: 19px; height: 19px; }
 .pwa-ui .pwa-dashboard > .grid:first-of-type { gap: 10px; }

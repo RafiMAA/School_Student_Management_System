@@ -149,9 +149,11 @@ export default function Dashboard() {
             <p>Assalamu Alaikum,</p>
             <button type="button" aria-label="Notifications"><Bell /></button>
           </div>
-          <h1>{user?.fullName || 'User'}</h1>
+          <div className="pwa-dashboard-name-row">
+            <h1>{user?.fullName || 'User'}</h1>
+            <div className="pwa-dashboard-year">Academic Year {summary.current_academic_year}</div>
+          </div>
         </div>
-        <div className="pwa-dashboard-year">Academic Year {summary.current_academic_year}</div>
       </section>
       {/* Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">

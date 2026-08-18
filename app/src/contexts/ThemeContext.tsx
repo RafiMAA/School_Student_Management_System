@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 type ResolvedTheme = 'light' | 'dark';
@@ -22,6 +23,7 @@ const ThemeContext = createContext<ThemeContextType>({
 });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
   const [theme, setTheme] = useState<ThemeMode>(() => {
     const saved = localStorage.getItem(THEME_KEY);
     return saved === 'light' || saved === 'dark' || saved === 'system' ? saved : 'system';
@@ -40,7 +42,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', resolvedTheme === 'dark');
     document.documentElement.style.colorScheme = resolvedTheme;
-    const pwaThemeColor = document.documentElement.classList.contains('pwa-ui')
+    const pwaThemeColor = document.documentElement.classList.contains('pwa-ui') && pathname === '/'
       ? '#009b55'
       : resolvedTheme === 'dark' ? '#06101f' : '#f8fafc';
     document.querySelector<HTMLMetaElement>('#theme-color-meta')?.setAttribute(
@@ -49,7 +51,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     );
     localStorage.setItem(THEME_KEY, theme);
     localStorage.removeItem('ahadiya-theme');
-  }, [theme, resolvedTheme]);
+  }, [theme, resolvedTheme, pathname]);
 
   const toggleTheme = () => setTheme(resolvedTheme === 'light' ? 'dark' : 'light');
 
