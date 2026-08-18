@@ -44,6 +44,7 @@ function getTitle(select: HTMLSelectElement) {
 export default function PwaSelectSheet() {
   const [sheet, setSheet] = useState<SheetState | null>(null);
   const hasSheetHistoryEntry = useRef(false);
+  const ignoreOptionClicksUntil = useRef(0);
 
   const dismissSheet = useCallback(() => {
     setSheet(null);
@@ -65,6 +66,9 @@ export default function PwaSelectSheet() {
   }, []);
 
   useEffect(() => {
+    let pendingSelect: HTMLSelectElement | null = null;
+    let pendingPointerId: number | null = null;
+
     const openSelect = (select: HTMLSelectElement) => {
       if (select.disabled) return;
       const options = Array.from(select.options)
@@ -112,12 +116,31 @@ export default function PwaSelectSheet() {
       const select = target?.closest('select');
       if (!(select instanceof HTMLSelectElement) || select.disabled) return;
 
-      // Android opens its native select UI before the later click event. Stop
-      // that default action at the start of the gesture and open only our
-      // bottom sheet.
+      // Android opens its native select UI before the later click event, so
+      // cancel that action immediately. Wait for this pointer to be released
+      // before mounting our sheet; otherwise the release can touch through
+      // and choose whichever option appears beneath the finger.
       event.preventDefault();
       event.stopPropagation();
-      openSelect(select);
+      pendingSelect = select;
+      pendingPointerId = event.pointerId;
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      if (pendingPointerId !== event.pointerId || !pendingSelect) return;
+      const select = pendingSelect;
+      pendingSelect = null;
+      pendingPointerId = null;
+      event.preventDefault();
+      event.stopPropagation();
+      ignoreOptionClicksUntil.current = window.performance.now() + 250;
+      if (select.isConnected) openSelect(select);
+    };
+
+    const handlePointerCancel = (event: PointerEvent) => {
+      if (pendingPointerId !== event.pointerId) return;
+      pendingSelect = null;
+      pendingPointerId = null;
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -127,10 +150,14 @@ export default function PwaSelectSheet() {
     };
 
     document.addEventListener('pointerdown', handlePointerDown, true);
+    document.addEventListener('pointerup', handlePointerUp, true);
+    document.addEventListener('pointercancel', handlePointerCancel, true);
     document.addEventListener('click', handleClick, true);
     document.addEventListener('keydown', handleKeyDown, true);
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown, true);
+      document.removeEventListener('pointerup', handlePointerUp, true);
+      document.removeEventListener('pointercancel', handlePointerCancel, true);
       document.removeEventListener('click', handleClick, true);
       document.removeEventListener('keydown', handleKeyDown, true);
     };
@@ -151,6 +178,7 @@ export default function PwaSelectSheet() {
   }, [dismissSheet, sheet]);
 
   const choose = (value: string) => {
+    if (window.performance.now() < ignoreOptionClicksUntil.current) return;
     if (!sheet?.select.isConnected) {
       dismissSheet();
       return;
