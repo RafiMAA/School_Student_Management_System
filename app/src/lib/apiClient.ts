@@ -10,6 +10,7 @@ import { supabase } from './supabase';
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 let accessToken: string | null = null;
+let tokenRefreshPromise: Promise<string | null> | null = null;
 
 export const SESSION_EXPIRED_EVENT = 'ahadiya:session-expired';
 export const SESSION_EXPIRED_NOTICE_KEY = 'ahadiya-session-timeout';
@@ -20,6 +21,34 @@ export function setAccessToken(token: string | null) {
 
 export function getAccessToken(): string | null {
   return accessToken;
+}
+
+async function restorePersistedAccessToken(): Promise<string | null> {
+  if (accessToken) return accessToken;
+
+  // Auth state restoration and React rendering happen independently on a
+  // reload. Read Supabase's persisted session before the first API request so
+  // that request cannot race ahead without an Authorization header.
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  accessToken = session?.access_token ?? null;
+  return accessToken;
+}
+
+function refreshAccessToken(): Promise<string | null> {
+  if (!tokenRefreshPromise) {
+    tokenRefreshPromise = supabase.auth.refreshSession()
+      .then(({ data, error }) => {
+        if (error || !data.session?.access_token) return null;
+        setAccessToken(data.session.access_token);
+        return data.session.access_token;
+      })
+      .finally(() => {
+        tokenRefreshPromise = null;
+      });
+  }
+  return tokenRefreshPromise;
 }
 
 class ApiError extends Error {
@@ -38,6 +67,8 @@ async function request<T>(
   retryCount = 0,
   authRetried = false,
 ): Promise<T> {
+  await restorePersistedAccessToken();
+
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string> || {}),
   };
@@ -60,9 +91,8 @@ async function request<T>(
       // An installed app may resume before Supabase's background token refresh
       // completes. Refresh and replay once before ending a valid session.
       if (!authRetried) {
-        const { data, error } = await supabase.auth.refreshSession();
-        if (!error && data.session?.access_token) {
-          setAccessToken(data.session.access_token);
+        const refreshedToken = await refreshAccessToken();
+        if (refreshedToken) {
           return request<T>(path, options, retryCount, true);
         }
       }

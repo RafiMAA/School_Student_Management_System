@@ -82,9 +82,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setAccessToken(null);
           return null;
         })
-      : restoreUser())
+      : supabase.auth.getSession().then(({ data: { session } }) => {
+          // Bridge the persisted token before authenticated routes and their
+          // API queries are allowed to render.
+          setAccessToken(session?.access_token ?? null);
+          return restoreUser();
+        }))
       .then((profile) => {
         setUser(profile);
+        if (profile) sessionStorage.removeItem(TIMEOUT_NOTICE_KEY);
         if (profile && !installedApp && !lastActivity) {
           localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
         }
@@ -202,6 +208,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const profile = await signInWithPassword(email, password);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    setAccessToken(session?.access_token ?? null);
+    sessionStorage.removeItem(TIMEOUT_NOTICE_KEY);
     if (!isRunningAsPWA()) {
       localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
     }

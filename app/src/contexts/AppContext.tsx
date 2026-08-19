@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/apiClient';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AppContextType {
   currentAcademicYear: string;
@@ -28,6 +29,7 @@ function getInitialYear(): { year_label: string } | undefined {
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
@@ -39,6 +41,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('ahadiya_academic_year', JSON.stringify(data));
       return data;
     },
+    enabled: isAuthenticated && !isAuthLoading,
     staleTime: 1000 * 60 * 5,  // 5 minutes
     gcTime: 1000 * 60 * 10,    // 10 minutes — keep in cache longer
     initialData: getInitialYear(),        // Instant from localStorage
