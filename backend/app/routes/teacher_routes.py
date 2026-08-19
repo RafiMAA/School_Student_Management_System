@@ -88,7 +88,15 @@ async def list_teachers(
         params.append(f"%{search}%"); idx += 1
         
     query += " GROUP BY t.id"
-    query += " ORDER BY t.full_name"
+    # Sort by numeric grade, medium, and class type. Personnel without a
+    # current-year class belong at the end, alphabetically.
+    query += """ ORDER BY
+        CASE WHEN COUNT(c.id) = 0 THEN 1 ELSE 0 END,
+        MIN(c.grade),
+        MIN(CASE c.medium::TEXT WHEN 'Sinhala' THEN 1 WHEN 'Tamil' THEN 2 END),
+        MIN(CASE c.gender_type::TEXT WHEN 'Mixed' THEN 1 WHEN 'Boys' THEN 2 WHEN 'Girls' THEN 3 END),
+        t.full_name
+    """
     rows = await db.fetch(query, *params)
 
     return [_row_to_response(r, r.get("assigned_class_name"), r.get("assigned_class_ids")) for r in rows]
