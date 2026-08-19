@@ -43,7 +43,9 @@ self.addEventListener('activate', event => {
           icon: '/ahadiya-pwa-icon-192.png',
           badge: '/ahadiya-pwa-icon-192.png',
           tag: 'ahadiya-pwa-update',
-          renotify: true,
+          // The foreground monitor may have already alerted for this version.
+          // Replace that tagged notification without sounding twice.
+          renotify: false,
           data: { url: '/settings', type: 'pwa-update', version: current.version },
         });
       }

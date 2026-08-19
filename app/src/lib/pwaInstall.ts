@@ -21,6 +21,9 @@ export const currentPWABuild: PWABuildInfo = {
 
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 const listeners = new Set<() => void>();
+const UPDATE_NOTIFICATION_KEY = 'ahadiya-update-notified-version';
+const UPDATE_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+let updateNotificationMonitorStarted = false;
 
 const notify = () => listeners.forEach(listener => listener());
 
@@ -94,6 +97,48 @@ export async function checkForPWAUpdate(): Promise<PWAUpdateStatus> {
   } catch {
     return { current: currentPWABuild, latest: null, updateAvailable: false };
   }
+}
+
+async function notifyIfUpdateAvailable(status: PWAUpdateStatus) {
+  if (
+    !status.updateAvailable
+    || !status.latest
+    || !isRunningAsPWA()
+    || !('Notification' in window)
+    || Notification.permission !== 'granted'
+    || !('serviceWorker' in navigator)
+    || localStorage.getItem(UPDATE_NOTIFICATION_KEY) === status.latest.version
+  ) return;
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    await registration.showNotification('Ahadiya app update available', {
+      body: `Version ${status.latest.version} is ready. Tap to open Settings and update.`,
+      icon: '/ahadiya-pwa-icon-192.png',
+      badge: '/ahadiya-pwa-icon-192.png',
+      tag: 'ahadiya-pwa-update',
+      data: { url: '/settings', type: 'pwa-update', version: status.latest.version },
+    });
+    localStorage.setItem(UPDATE_NOTIFICATION_KEY, status.latest.version);
+  } catch {
+    // A later foreground/online check will retry if the service worker was not ready.
+  }
+}
+
+/** Check for new builds throughout the installed app's lifetime. */
+export function startPWAUpdateNotificationMonitor() {
+  if (updateNotificationMonitorStarted || !isRunningAsPWA()) return;
+  updateNotificationMonitorStarted = true;
+
+  const check = async () => notifyIfUpdateAvailable(await checkForPWAUpdate());
+  const checkWhenVisible = () => {
+    if (document.visibilityState === 'visible') void check();
+  };
+
+  void check();
+  window.setInterval(check, UPDATE_CHECK_INTERVAL_MS);
+  window.addEventListener('online', check);
+  document.addEventListener('visibilitychange', checkWhenVisible);
 }
 
 function waitForControllerChange(timeoutMs = 5000) {
