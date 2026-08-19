@@ -22,7 +22,7 @@ export const currentPWABuild: PWABuildInfo = {
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 const listeners = new Set<() => void>();
 const UPDATE_NOTIFICATION_KEY = 'ahadiya-update-notified-version';
-const UPDATE_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 let updateNotificationMonitorStarted = false;
 
 const notify = () => listeners.forEach(listener => listener());
