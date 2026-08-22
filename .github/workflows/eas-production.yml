@@ -1,0 +1,57 @@
+name: Publish Android to Play Store
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-and-submit:
+    name: EAS Build & Submit (internal track)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: react_native
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Override Expo project identity
+        env:
+          EXPO_OWNER: ${{ vars.EXPO_OWNER }}
+          EXPO_SLUG: ${{ vars.EXPO_SLUG }}
+          EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
+        run: |
+          for name in EXPO_OWNER EXPO_SLUG EAS_PROJECT_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Repository variable $name is not set"
+              exit 1
+            fi
+          done
+          jq --arg owner "$EXPO_OWNER" \
+             --arg slug "$EXPO_SLUG" \
+             --arg projectId "$EAS_PROJECT_ID" \
+             '.expo.owner = $owner
+              | .expo.slug = $slug
+              | .expo.extra.eas.projectId = $projectId' \
+             app.json > app.json.tmp && mv app.json.tmp app.json
+          echo "Building as $EXPO_OWNER/$EXPO_SLUG ($EAS_PROJECT_ID)"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: react_native/package-lock.json
+
+      - name: Set up Expo & EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build AAB and submit to Play Store
+        run: eas build --platform android --profile production --non-interactive --auto-submit --wait
