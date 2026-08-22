@@ -128,6 +128,8 @@ class StudentUpdate(BaseModel):
     current_grade: Optional[int] = Field(default=None, ge=1, le=11)
     current_class_id: Optional[str] = None
     own_contact: Optional[str] = None
+    joined_date: Optional[date] = None
+    graduation_year: Optional[str] = Field(default=None, pattern=r"^\d{4}$")
 
 class StudentResponse(BaseModel):
     id: str

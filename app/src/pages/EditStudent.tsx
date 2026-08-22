@@ -25,6 +25,8 @@ export default function EditStudent() {
     grade: "",
     classId: "",
     joinedDate: "",
+    graduationYear: "",
+    status: "Active" as Student["status"],
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -50,6 +52,8 @@ export default function EditStudent() {
           classId: studentData.current_class_id || "",
           joinedDate:
             studentData.joined_date || new Date().toISOString().split("T")[0],
+          graduationYear: studentData.graduation_year || "",
+          status: studentData.status,
         });
         setLoading(false);
       })
@@ -85,8 +89,14 @@ export default function EditStudent() {
     if (form.parentContact2 && !/^[0-9]{10}$/.test(form.parentContact2))
       errs.parentContact2 = "Must be 10 digits";
     if (!form.medium) errs.medium = "Required";
-    if (!form.grade) errs.grade = "Required";
-    if (!form.classId) errs.classId = "Required";
+    if (form.status === "Alumni") {
+      if (!/^\d{4}$/.test(form.graduationYear)) {
+        errs.graduationYear = "Enter a four-digit year";
+      }
+    } else {
+      if (!form.grade) errs.grade = "Required";
+      if (!form.classId) errs.classId = "Required";
+    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -96,7 +106,7 @@ export default function EditStudent() {
     if (!validate()) return;
     setSubmitting(true);
     try {
-      await api.patch(`/students/${id}`, {
+      const payload = {
         full_name: form.fullName,
         gender: form.gender,
         date_of_birth: form.dob,
@@ -105,12 +115,17 @@ export default function EditStudent() {
         parent_contact: form.parentContact,
         parent_contact_2: form.parentContact2 || null,
         medium: form.medium,
-        current_grade: parseInt(form.grade),
-        current_class_id: form.classId || null,
         joined_date: form.joinedDate,
-      });
+        ...(form.status === "Alumni"
+          ? { graduation_year: form.graduationYear }
+          : {
+              current_grade: parseInt(form.grade),
+              current_class_id: form.classId,
+            }),
+      };
+      await api.patch(`/students/${id}`, payload);
       addToast("success", "Student updated successfully");
-      navigate("/students");
+      navigate(form.status === "Alumni" ? `/students/alumni/${id}` : `/students/${id}`);
     } catch (err: any) {
       addToast("error", err?.data?.detail || "Failed to update student");
     } finally {
@@ -328,6 +343,25 @@ export default function EditStudent() {
                 )}
               </div>
 
+              {form.status === "Alumni" ? (
+              <div>
+                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+                  Graduated Year <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={form.graduationYear}
+                  onChange={(e) => handleChange("graduationYear", e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  className={inputClass("graduationYear")}
+                  placeholder="e.g. 2023"
+                />
+                {errors.graduationYear && (
+                  <p className="mt-1 text-xs text-red-500">{errors.graduationYear}</p>
+                )}
+              </div>
+              ) : (<>
               <div>
                 <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
                   Grade <span className="text-red-500">*</span>
@@ -371,6 +405,7 @@ export default function EditStudent() {
                   <p className="mt-1 text-xs text-red-500">{errors.classId}</p>
                 )}
               </div>
+              </>)}
 
               <div>
                 <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">

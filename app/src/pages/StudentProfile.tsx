@@ -140,8 +140,11 @@ export default function StudentProfile() {
 
         <section className="pwa-student-profile-info">
           <div className="pwa-student-profile-row">
-            <span><BookOpen /></span>
-            <div><strong>Class</strong><small>{student.status === 'Alumni' ? `Grade ${student.current_grade} · ${student.medium}` : student.class_name || 'Unassigned'}</small></div>
+            <span>{student.status === 'Alumni' ? <GraduationCap /> : <BookOpen />}</span>
+            <div>
+              <strong>{student.status === 'Alumni' ? 'Graduated year' : 'Class'}</strong>
+              <small>{student.status === 'Alumni' ? student.graduation_year || 'Not provided' : student.class_name || 'Unassigned'}</small>
+            </div>
           </div>
           <div className="pwa-student-profile-row">
             <span><Calendar /></span>
@@ -241,6 +244,15 @@ export default function StudentProfile() {
                   <p className="font-medium text-slate-900 dark:text-white">{student.class_name || 'Unassigned'}</p>
                 </div>
               </div>
+              )}
+              {student.status === 'Alumni' && (
+                <div className="flex items-center gap-3 text-sm">
+                  <GraduationCap className="w-4 h-4 text-slate-400 shrink-0" />
+                  <div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Graduated Year</p>
+                    <p className="font-medium text-slate-900 dark:text-white">{student.graduation_year || 'Not provided'}</p>
+                  </div>
+                </div>
               )}
               <div className="flex items-center gap-3 text-sm">
                 <Calendar className="w-4 h-4 text-slate-400 shrink-0" />

@@ -139,7 +139,14 @@ export default function Dashboard() {
         <div className="pwa-dashboard-greeting">
           <div className="pwa-dashboard-salam-row">
             <p>Assalamu Alaikum,</p>
-            <button type="button" aria-label="Notifications"><Bell /></button>
+            <button
+              type="button"
+              aria-label="Open notification settings"
+              title="Notification settings"
+              onClick={() => navigate('/settings')}
+            >
+              <Bell aria-hidden="true" />
+            </button>
           </div>
           <div className="pwa-dashboard-name-row">
             <h1>{user?.fullName || 'User'}</h1>
