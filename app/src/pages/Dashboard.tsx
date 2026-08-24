@@ -5,6 +5,7 @@ import { Users, GraduationCap, BookOpen, Award, CheckCircle, XCircle, Eye, Bell,
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/apiClient';
+import { cacheProfile, type ProfileData } from '@/lib/profileCache';
 
 interface SummaryData {
   total_students: number;
@@ -22,7 +23,7 @@ interface SummaryData {
 }
 
 interface BootstrapData {
-  user: unknown;
+  user: ProfileData;
   academic_year: { year_label: string };
   summary: SummaryData;
 }
@@ -77,11 +78,13 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   
   const { data: summary, isLoading: loading, error, refetch, isFetching } = useQuery({
-    queryKey: ['dashboard-bootstrap'],
+    queryKey: ['dashboard-bootstrap', user?.id],
     queryFn: async () => {
       const data = await api.get<BootstrapData>('/dashboard/bootstrap');
       // Pre-seed React Query cache so AppContext doesn't fire a separate /current request
       queryClient.setQueryData(['current-academic-year'], data.academic_year);
+      queryClient.setQueryData(['my-profile', user?.id], data.user);
+      cacheProfile(user?.id, data.user);
       // Persist to localStorage for instant hydration on next page load
       localStorage.setItem('ahadiya_academic_year', JSON.stringify(data.academic_year));
       

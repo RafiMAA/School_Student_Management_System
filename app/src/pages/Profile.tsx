@@ -1,16 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/apiClient';
+import { cacheProfile, profileForm, readCachedProfile, type ProfileData } from '@/lib/profileCache';
 import { User, Phone, Save, AtSign, MapPin, BookOpen } from 'lucide-react';
-
-interface ProfileData {
-  full_name?: string;
-  email?: string;
-  contact?: string;
-  address?: string;
-  assigned_class?: string | null;
-}
 
 function getErrorDetail(error: unknown, fallback: string) {
   if (typeof error === 'object' && error !== null && 'data' in error) {
@@ -25,32 +19,37 @@ function getErrorDetail(error: unknown, fallback: string) {
 
 export default function Profile() {
   const { addToast } = useToast();
-  const { user } = useAuth();
+  const { user, updateUserDetails } = useAuth();
+  const queryClient = useQueryClient();
+  const [initialProfile] = useState(() => readCachedProfile(user?.id));
   
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    full_name: '',
-    email: '',
-    contact: '',
-    address: ''
+  const [formData, setFormData] = useState(() => profileForm(initialProfile, user?.email));
+  const [assignedClass, setAssignedClass] = useState<string | null>(initialProfile?.assigned_class || null);
+
+  const profileQuery = useQuery({
+    queryKey: ['my-profile', user?.id],
+    queryFn: () => api.get<ProfileData>('/auth/me'),
+    enabled: Boolean(user?.id),
+    initialData: initialProfile,
+    // A persisted profile is rendered immediately, then checked in the
+    // background. Repeat visits use the fresh in-memory result for 5 minutes.
+    initialDataUpdatedAt: initialProfile ? 0 : undefined,
+    staleTime: 5 * 60 * 1000,
   });
-  const [assignedClass, setAssignedClass] = useState<string | null>(null);
 
   useEffect(() => {
-    // Fetch latest profile details
-    api.get<ProfileData>('/auth/me').then(data => {
-      setFormData(prev => ({
-        ...prev,
-        full_name: data.full_name || '',
-        email: data.email || user?.email || '',
-        contact: data.contact || '',
-        address: data.address || ''
-      }));
-      setAssignedClass(data.assigned_class || null);
-    }).catch(() => {
+    if (!profileQuery.data) return;
+    setFormData(profileForm(profileQuery.data, user?.email));
+    setAssignedClass(profileQuery.data.assigned_class || null);
+    cacheProfile(user?.id, profileQuery.data);
+  }, [profileQuery.data, user?.email, user?.id]);
+
+  useEffect(() => {
+    if (profileQuery.error && !profileQuery.data) {
       addToast('error', 'Failed to load profile');
-    });
-  }, [addToast, user?.email]);
+    }
+  }, [addToast, profileQuery.data, profileQuery.error]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -69,18 +68,17 @@ export default function Profile() {
     
     try {
       const updatedUser = await api.put<ProfileData>('/auth/profile', payload);
+      const updatedProfile: ProfileData = {
+        ...profileQuery.data,
+        ...updatedUser,
+        email: updatedUser.email || formData.email || user?.email || '',
+      };
+      queryClient.setQueryData(['my-profile', user?.id], updatedProfile);
+      cacheProfile(user?.id, updatedProfile);
+      setFormData(profileForm(updatedProfile, user?.email));
+      setAssignedClass(updatedProfile.assigned_class || null);
+      updateUserDetails({ fullName: updatedProfile.full_name, email: updatedProfile.email });
       addToast('success', 'Profile updated successfully');
-      
-      // Update local storage so the next reload has fresh data instantly
-      if (user) {
-        const newLocalUser = { ...user, full_name: updatedUser.full_name, email: updatedUser.email };
-        localStorage.setItem('ahadiya_user', JSON.stringify(newLocalUser));
-      }
-      
-      // Reload to reflect name changes in the header
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
     } catch (error: unknown) {
       addToast('error', getErrorDetail(error, 'Failed to update profile'));
     } finally {

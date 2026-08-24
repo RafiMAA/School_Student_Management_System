@@ -23,6 +23,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  updateUserDetails: (details: { fullName?: string; email?: string }) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -32,6 +33,7 @@ const AuthContext = createContext<AuthContextType>({
   login: async () => {},
   logout: () => {},
   refreshUser: async () => {},
+  updateUserDetails: () => {},
 });
 
 const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
@@ -232,8 +234,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(profile);
   };
 
+  const updateUserDetails = useCallback((details: { fullName?: string; email?: string }) => {
+    setUser(current => current ? {
+      ...current,
+      fullName: details.fullName ?? current.fullName,
+      email: details.email ?? current.email,
+    } : current);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout, refreshUser, updateUserDetails }}>
       {children}
     </AuthContext.Provider>
   );
