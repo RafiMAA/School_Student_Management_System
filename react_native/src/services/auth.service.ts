@@ -2,6 +2,7 @@
 // Handles login, session restore, and admin profile verification.
 
 import { supabase } from './supabase';
+import { setAccessToken } from './api';
 import type { AppUser, UserRole } from '../types';
 
 /**
@@ -46,7 +47,13 @@ export async function signInWithPassword(
   });
 
   if (error) throw new Error(error.message || 'Invalid email or password.');
-  if (!data.user) throw new Error('Unable to authenticate.');
+  if (!data.user || !data.session?.access_token) {
+    throw new Error('Unable to authenticate.');
+  }
+
+  // Bridge the token before setting the authenticated user. The dashboard
+  // starts protected API requests as soon as the user state is published.
+  setAccessToken(data.session.access_token);
 
   const profile = await loadAdminProfile(
     data.user.id,
@@ -70,7 +77,13 @@ export async function restoreUser(): Promise<AppUser | null> {
     data: { session },
   } = await supabase.auth.getSession();
 
-  if (!session?.user) return null;
+  if (!session?.user) {
+    setAccessToken(null);
+    return null;
+  }
+
+  // Do not rely solely on the async auth event when restoring the app.
+  setAccessToken(session.access_token);
 
   const profile = await loadAdminProfile(
     session.user.id,

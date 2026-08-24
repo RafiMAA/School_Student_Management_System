@@ -34,9 +34,28 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true, au
         }
       }
 
-      setAccessToken(null);
-      void supabase.auth.signOut({ scope: 'local' });
-      throw new ApiError(401, 'Your session has expired.');
+      // A 401 from the school API can also mean that the backend has stale or
+      // mismatched Supabase configuration. Verify the session with Supabase
+      // itself before clearing a valid login from this device.
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      const authStatus = userError?.status;
+      const sessionIsInvalid = !userError && !userData.user
+        || authStatus === 401
+        || authStatus === 403;
+
+      if (sessionIsInvalid) {
+        setAccessToken(null);
+        await supabase.auth.signOut({ scope: 'local' });
+        throw new ApiError(401, 'Your session has expired. Please sign in again.');
+      }
+
+      throw new ApiError(
+        401,
+        userData.user
+          ? 'The school server rejected a valid login. Please check its Supabase configuration.'
+          : 'Could not verify your login. Check your connection and try again.',
+        userError,
+      );
     }
     if (response.status >= 500 && retry) return request<T>(path, init, false, authRetried);
     if (!response.ok) { const data = await response.json().catch(() => ({})); throw new ApiError(response.status, data.detail || `Request failed (${response.status})`, data); }

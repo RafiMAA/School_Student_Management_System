@@ -75,8 +75,8 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
             setUser(null);
           }
         } catch {
-          // Profile load failed — keep existing user state on TOKEN_REFRESHED
-          if (event === 'SIGNED_IN') setUser(null);
+          // A transient profile request failure must not erase a session that
+          // signInWithPassword has already verified successfully.
         }
       }
     });
@@ -87,7 +87,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
   const login = async (email: string, password: string) => {
     const profile = await signInWithPassword(email, password);
     setUser(profile);
-    // Token bridging is handled by onAuthStateChange listener
+    // signInWithPassword bridges the token before publishing this user.
   };
 
   const refreshUser = async () => {
