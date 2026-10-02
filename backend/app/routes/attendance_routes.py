@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional
-from datetime import date, date as dt_date
+from datetime import date, date as dt_date, timedelta
 import asyncpg
 
 from app.database import get_db
@@ -272,8 +272,7 @@ async def attendance_summary(
         # Find the most recent Sunday
         today = date.today()
         days_since_sunday = (today.weekday() + 1) % 7
-        attendance_date = str(today if days_since_sunday == 0 else today.replace(
-            day=today.day - days_since_sunday))
+        attendance_date = str(today - timedelta(days=days_since_sunday))
 
     # Parse attendance_date string into a date object for asyncpg
     parsed_date = datetime.strptime(

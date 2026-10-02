@@ -38,9 +38,9 @@ app = FastAPI(
 )
 settings = get_settings()
 
-# ── Middleware stack (order matters: outermost first) ──
+# Middleware registered later wraps middleware registered earlier.
 
-# 1. Response timing — adds X-Response-Time header so we can measure real latency
+# Response timing — adds X-Response-Time header so we can measure real latency
 @app.middleware("http")
 async def add_response_time(request: Request, call_next):
     start = time.perf_counter()
@@ -56,18 +56,7 @@ async def add_response_time(request: Request, call_next):
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
 
-# 2. CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origin_list,
-    allow_origin_regex=r"https://ahadiya-student-management-system(?:-[a-z0-9-]+)?\.vercel\.app",
-    allow_credentials=False,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
-    allow_headers=["Authorization", "Content-Type", "Accept"],
-    expose_headers=["X-Response-Time", "Server-Timing"],
-)
-
-# 3. Compression
+# Compression
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
@@ -89,3 +78,15 @@ app.include_router(notification_routes.router, prefix="/api/notifications", tags
 @app.api_route("/api/health", methods=["GET", "HEAD"])
 async def health_check():
     return {"status": "ok", "service": "ahadiya-backend"}
+
+
+# Wrap the complete ASGI app so unhandled 500 responses also receive CORS headers.
+app = CORSMiddleware(
+    app=app,
+    allow_origins=settings.cors_origin_list,
+    allow_origin_regex=r"https://ahadiya-student-management-system(?:-[a-z0-9-]+)?\.vercel\.app",
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
+    expose_headers=["X-Response-Time", "Server-Timing"],
+)

@@ -1,5 +1,5 @@
 from typing import Optional
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from fastapi import APIRouter, Depends, Response
 import asyncpg
 
@@ -29,8 +29,7 @@ async def dashboard_bootstrap(
     if not attendance_date:
         today = date.today()
         days_since_sunday = (today.weekday() + 1) % 7
-        attendance_date = str(today if days_since_sunday == 0 else today.replace(
-            day=today.day - days_since_sunday))
+        attendance_date = str(today - timedelta(days=days_since_sunday))
 
     parsed_date = datetime.strptime(
         attendance_date, "%Y-%m-%d").date() if isinstance(attendance_date, str) else attendance_date
@@ -83,7 +82,7 @@ async def dashboard_bootstrap(
             else:
                 meta_row = await conn.fetchrow(
                     """
-                    SELECT id, year_label, start_date, end_date, is_current, created_at,
+                    SELECT id AS ay_id, year_label, start_date, end_date, is_current, created_at,
                            0::BIGINT AS student_count, 0::BIGINT AS teacher_count,
                            0::BIGINT AS class_count, ''::TEXT AS year_label_count, 0::BIGINT AS alumni_count
                     FROM academic_years WHERE id = $1
