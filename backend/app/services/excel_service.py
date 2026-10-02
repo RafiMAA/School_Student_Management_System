@@ -36,8 +36,9 @@ TEMPLATE_HEADERS = [
 
 
 def create_student_import_template(classes: list[str]) -> io.BytesIO:
-    """Create a styled workbook with dropdowns for current classes and gender."""
+    """Create a styled workbook with sample rows and current class dropdowns."""
     from openpyxl import Workbook
+    from openpyxl.comments import Comment
     from openpyxl.workbook.defined_name import DefinedName
     from openpyxl.formatting.rule import FormulaRule
     from openpyxl.styles import Alignment, Font, PatternFill
@@ -74,6 +75,45 @@ def create_student_import_template(classes: list[str]) -> io.BytesIO:
         worksheet.cell(row=row, column=7).number_format = "@"
         worksheet.cell(row=row, column=3).number_format = "yyyy-mm-dd"
         worksheet.cell(row=row, column=9).number_format = "yyyy-mm-dd"
+
+    # Use available classes so the examples match this school's dropdown values.
+    def example_class(gender: str) -> str:
+        return next(
+            (name for name in classes if name.endswith((f" {gender}", " Mixed"))),
+            classes[0] if classes else "",
+        )
+
+    examples = [
+        ["Sample Student Ahmed", "Male", date(2015, 5, 10), "Sample Guardian Ali",
+         "0771234567", "Sample Guardian Amina", "0712345678", example_class("Male"), date(2026, 1, 11)],
+        ["Sample Student Fathima", "Female", date(2016, 8, 20), "Sample Guardian Mohamed",
+         "0751234567", None, None, example_class("Female"), date(2026, 1, 11)],
+    ]
+    for row_number, values in enumerate(examples, start=2):
+        for column, value in enumerate(values, start=1):
+            worksheet.cell(row=row_number, column=column, value=value)
+        worksheet.cell(row=row_number, column=1).comment = Comment(
+            "Example only. Replace or delete both sample rows (2 and 3) before uploading.",
+            "Student Import",
+        )
+
+    instructions = workbook.create_sheet("Instructions")
+    for instruction in [
+        "How to fill the Student Import sheet",
+        "Rows 2 and 3 are fictional examples. Replace or delete BOTH rows before uploading; otherwise they will be imported.",
+        "Keep row 1 (the column headers) unchanged. Enter one student per row, starting at row 2.",
+        "Enter dates as YYYY-MM-DD, for example 2015-05-10. Both Date of Birth and Joined Date are required.",
+        "Choose Male or Female from the Gender dropdown and the student's current class from the Class dropdown.",
+        "Contact numbers must contain 10 digits, including the leading zero, for example 0771234567.",
+        "Secondary Contact Name and Secondary Contact Number are optional; row 3 shows these left blank.",
+        "All other columns are required. If there are no Class options, create current-year classes and download a new template.",
+    ]:
+        instructions.append([instruction])
+    instructions.column_dimensions["A"].width = 110
+    for row in instructions:
+        row[0].alignment = Alignment(wrap_text=True, vertical="top")
+        instructions.row_dimensions[row[0].row].height = 32
+    instructions["A1"].font = Font(bold=True, color="059669", size=14)
 
     options.append(["Gender", "Class"])
     for index, class_name in enumerate(classes, start=2):

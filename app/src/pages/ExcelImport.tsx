@@ -128,7 +128,11 @@ export default function ExcelImport() {
                 </li>
                 <li className="flex items-start gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                  <strong>Row 2+:</strong> Enter student data and choose Gender and Class from the provided dropdowns
+                  <strong>Rows 2–3:</strong> Two fictional examples show the date, contact number, and optional field formats. Replace or delete both example rows before uploading to avoid importing sample students.
+                </li>
+                <li className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                  <strong>Row 2+:</strong> Enter your students and choose Gender and Class from the dropdowns. See the Instructions sheet for details.
                 </li>
               </ul>
             </div>
