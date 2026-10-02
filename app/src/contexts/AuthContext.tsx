@@ -69,6 +69,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    let disposed = false;
+    let authRevision = 0;
+    let restoreCancelled = false;
+    let profileTimer: ReturnType<typeof setTimeout> | undefined;
     // 1. Restore session on page load
     const lastActivity = Number(localStorage.getItem(LAST_ACTIVITY_KEY));
     const installedApp = isRunningAsPWA();
@@ -91,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return restoreUser();
         }))
       .then((profile) => {
+        if (disposed || restoreCancelled) return;
         setUser(profile);
         if (profile) sessionStorage.removeItem(TIMEOUT_NOTICE_KEY);
         if (profile && !installedApp && !lastActivity) {
@@ -98,18 +103,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       })
       .catch(() => {
-        setUser(null);
+        if (!disposed && !restoreCancelled) setUser(null);
       })
-      .finally(() => setIsLoading(false));
+      .finally(() => { if (!disposed) setIsLoading(false); });
 
     // 2. Listen for auth state changes (login, logout, token refresh)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (disposed) return;
       // Always bridge the token to the API client for FastAPI calls
       setAccessToken(session?.access_token ?? null);
 
       if (event === 'SIGNED_OUT') {
+        restoreCancelled = true;
+        authRevision += 1;
+        clearTimeout(profileTimer);
         if (userRef.current && !manualLogoutRef.current) {
           sessionStorage.setItem(TIMEOUT_NOTICE_KEY, 'true');
         }
@@ -118,24 +127,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-        try {
-          const profile = await loadAdminProfile(
-            session.user.id,
-            session.user.email ?? '',
-          );
-          if (profile) {
-            setUser(profile);
-          } else if (event === 'SIGNED_IN') {
-            await supabase.auth.signOut();
-            setUser(null);
-          }
-        } catch {
-          if (event === 'SIGNED_IN') setUser(null);
-        }
+        const revision = ++authRevision;
+        clearTimeout(profileTimer);
+        // Supabase awaits auth listeners while restoring/refreshing a session.
+        // Profile queries also read that session, so awaiting them here can
+        // deadlock startup. Start them in a separate task after the listener exits.
+        profileTimer = setTimeout(() => {
+          void (async () => {
+            try {
+              const profile = await loadAdminProfile(
+                session.user.id,
+                session.user.email ?? '',
+              );
+              if (disposed || revision !== authRevision) return;
+              if (profile) {
+                setUser(profile);
+              } else if (event === 'SIGNED_IN') {
+                setUser(null);
+                await supabase.auth.signOut();
+              }
+            } catch {
+              if (!disposed && revision === authRevision && event === 'SIGNED_IN') {
+                setUser(null);
+              }
+            }
+          })();
+        }, 0);
       }
     });
 
     const handleExpiredSession = () => {
+      restoreCancelled = true;
+      authRevision += 1;
+      clearTimeout(profileTimer);
       localStorage.removeItem(LAST_ACTIVITY_KEY);
       setAccessToken(null);
       setUser(null);
@@ -143,6 +167,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.addEventListener(SESSION_EXPIRED_EVENT, handleExpiredSession);
 
     return () => {
+      disposed = true;
+      clearTimeout(profileTimer);
       subscription.unsubscribe();
       window.removeEventListener(SESSION_EXPIRED_EVENT, handleExpiredSession);
     };
