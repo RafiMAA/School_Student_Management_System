@@ -10,12 +10,13 @@ export function formatLocalDate(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-export function DateField({ label, value, onChange, maximumDate, minimumDate }: {
+export function DateField({ label, value, onChange, maximumDate, minimumDate, error }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   maximumDate?: Date;
   minimumDate?: Date;
+  error?: string;
 }) {
   const { colors, dark } = useTheme();
   const [open, setOpen] = useState(false);
@@ -43,10 +44,11 @@ export function DateField({ label, value, onChange, maximumDate, minimumDate }: 
   return <View style={{ gap: 7 }}>
     <Text style={{ fontSize: 12, fontWeight: '700', color: colors.muted }}>{label}</Text>
     <Pressable accessibilityRole="button" accessibilityLabel={`${label}, ${value || 'Select date'}`} onPress={showCalendar}
-      style={[styles.field, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      style={[styles.field, { backgroundColor: colors.surface, borderColor: error ? colors.danger : colors.border }]}>
       <Text style={{ flex: 1, color: value ? colors.text : colors.muted }}>{value || 'Select date'}</Text>
       <Ionicons name="calendar-outline" size={20} color={colors.primary} />
     </Pressable>
+    {error ? <Text style={{ color: colors.danger, fontSize: 12 }}>{error}</Text> : null}
     {Platform.OS === 'ios' && <Modal transparent animationType="fade" visible={open} onRequestClose={() => setOpen(false)}>
       <View style={styles.backdrop}>
         <View style={[styles.calendar, { backgroundColor: colors.surface }]}>
