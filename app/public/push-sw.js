@@ -1,5 +1,4 @@
 const PWA_STATE_CACHE = 'ahadiya-pwa-state-v1';
-const PWA_VERSION_MARKER = '/__ahadiya_pwa_version__';
 
 self.addEventListener('push', event => {
   const payload = event.data ? event.data.json() : {};
@@ -22,38 +21,9 @@ self.addEventListener('notificationclick', event => {
   }));
 });
 
-self.addEventListener('activate', event => {
-  event.waitUntil((async () => {
-    try {
-      const response = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
-      if (!response.ok) return;
-      const current = await response.json();
-      if (!current?.version) return;
-
-      const stateCache = await caches.open(PWA_STATE_CACHE);
-      const previousResponse = await stateCache.match(PWA_VERSION_MARKER);
-      const previous = previousResponse ? await previousResponse.json() : null;
-      await stateCache.put(PWA_VERSION_MARKER, new Response(JSON.stringify(current), {
-        headers: { 'Content-Type': 'application/json' },
-      }));
-
-      if (previous?.version && previous.version !== current.version && self.Notification?.permission === 'granted') {
-        await self.registration.showNotification('Ahadiya app update available', {
-          body: `Version ${current.version} is ready. Tap to update the app.`,
-          icon: '/ahadiya-pwa-icon-192.png',
-          badge: '/ahadiya-pwa-icon-192.png',
-          tag: 'ahadiya-pwa-update',
-          // The foreground monitor may have already alerted for this version.
-          // Replace that tagged notification without sounding twice.
-          renotify: false,
-          data: { url: '/settings', type: 'pwa-update', version: current.version },
-        });
-      }
-    } catch {
-      // Offline activation will be checked again on the next service-worker update.
-    }
-  })());
-});
+// Version checks and update notifications run in the foreground monitor.
+// Activation must not wait for version.json: a stalled connection would also
+// delay the new worker from serving the app's cached startup files.
 
 self.addEventListener('message', event => {
   if (event.data?.type === 'SKIP_WAITING') {

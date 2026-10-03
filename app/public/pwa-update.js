@@ -3,6 +3,8 @@
   var timeout;
   var updating = false;
   var reloading = false;
+  var pendingUpdate = false;
+  var watchedWorkers = new WeakSet();
   var watched = new WeakSet();
 
   function hide() {
@@ -21,14 +23,11 @@
       overlay.id = 'pwa-update';
       overlay.setAttribute('role', 'status');
       overlay.setAttribute('aria-live', 'polite');
-      overlay.innerHTML = '<div class="pwa-update-card"><div class="pwa-update-ring" aria-hidden="true"></div><h1>Installing update…</h1><p>Please wait while we prepare the latest version.</p><button type="button" hidden>Continue using app</button></div>';
+      overlay.innerHTML = '<div class="pwa-update-card"><div class="pwa-update-ring" aria-hidden="true"></div><h1>Installing update…</h1><p>Please wait while we prepare the latest version.</p><button type="button">Continue using app</button></div>';
       overlay.querySelector('button').addEventListener('click', hide);
       document.body.appendChild(overlay);
-      timeout = setTimeout(function () {
-        if (!overlay) return;
-        overlay.querySelector('p').textContent = 'This is taking longer than usual. Check your connection, or continue using the app while the update finishes.';
-        overlay.querySelector('button').hidden = false;
-      }, 30000);
+      // A slow/offline update must never leave a full-screen blocker behind.
+      timeout = setTimeout(hide, 15000);
     }
     if (document.body) render();
     else document.addEventListener('DOMContentLoaded', render, { once: true });
@@ -37,32 +36,48 @@
   window.addEventListener('ahadiya:update-start', show);
   window.addEventListener('ahadiya:update-end', hide);
 
+  function reload() {
+    if (reloading) return;
+    reloading = true;
+    hide();
+    window.location.reload();
+  }
+
   function watch(registration) {
-    if (watched.has(registration)) return;
+    if (!registration || watched.has(registration)) return;
     watched.add(registration);
     function track() {
       var worker = registration.installing || registration.waiting;
       // The first offline installation is not an app update.
-      if (!worker || !navigator.serviceWorker.controller) return;
+      if (!worker || !navigator.serviceWorker.controller || watchedWorkers.has(worker)) return;
+      watchedWorkers.add(worker);
+      pendingUpdate = true;
       show();
-      worker.addEventListener('statechange', function () {
-        if (worker.state === 'redundant') hide();
-      });
+      function checkState() {
+        if (worker.state === 'installed') {
+          worker.postMessage({ type: 'SKIP_WAITING' });
+        } else if (worker.state === 'activated') {
+          worker.removeEventListener('statechange', checkState);
+          reload();
+        } else if (worker.state === 'redundant') {
+          worker.removeEventListener('statechange', checkState);
+          pendingUpdate = false;
+          hide();
+        }
+      }
+      worker.addEventListener('statechange', checkState);
+      checkState();
     }
     registration.addEventListener('updatefound', track);
     track();
   }
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function (registrations) {
-      registrations.forEach(watch);
-    }).catch(function () {});
-    navigator.serviceWorker.ready.then(watch).catch(function () {});
+    // Only watch the registration that serves this page.
     navigator.serviceWorker.addEventListener('controllerchange', function () {
-      if (!updating || reloading) return;
-      reloading = true;
-      // Let the browser paint the status before switching to the new version.
-      setTimeout(function () { window.location.reload(); }, 150);
+      if (pendingUpdate || updating) reload();
     });
+    navigator.serviceWorker.getRegistration().then(watch).catch(function () {});
+    navigator.serviceWorker.ready.then(watch).catch(function () {});
   }
 })();
