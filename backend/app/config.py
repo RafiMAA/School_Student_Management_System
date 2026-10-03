@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     supabase_service_role_key: str = ""
 
     # Push notifications and protected scheduler calls
+    notification_scheduler_enabled: bool = True
     notification_cron_secret: str = ""
     vapid_private_key: str = ""
     vapid_claim_email: str = ""

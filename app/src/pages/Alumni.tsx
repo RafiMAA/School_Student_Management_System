@@ -142,7 +142,7 @@ export default function Alumni() {
             <label htmlFor="pwa-alumni-parent-2">Secondary contact name</label>
             <input id="pwa-alumni-parent-2" type="text" value={form.parentName2} onChange={(event) => setForm({...form, parentName2: event.target.value})} placeholder="Optional" />
 
-            <label htmlFor="pwa-alumni-contact-2">Secondary contact</label>
+            <label htmlFor="pwa-alumni-contact-2">WhatsApp Number</label>
             <input id="pwa-alumni-contact-2" type="tel" value={form.parentContact2} onChange={(event) => setForm({...form, parentContact2: event.target.value})} placeholder="Optional" inputMode="tel" />
 
             <label htmlFor="pwa-alumni-own-contact">Own contact</label>
@@ -276,7 +276,7 @@ export default function Alumni() {
               <input type="text" value={form.parentName2} onChange={e => setForm({...form, parentName2: e.target.value})} className={alumniFieldClass} placeholder="Enter parent's name" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">Secondary Contact</label>
+              <label className="block text-xs font-medium text-slate-500 mb-1">WhatsApp Number</label>
               <input type="tel" value={form.parentContact2} onChange={e => setForm({...form, parentContact2: e.target.value})} className={alumniFieldClass} inputMode="tel" placeholder="e.g. 0771234567" />
             </div>
             <div>

@@ -124,7 +124,7 @@ export default function ExcelImport() {
               <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
                 <li className="flex items-start gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                  <strong>Row 1 (Headers):</strong> Full Name | Gender | Date of Birth | Parent/Guardian Name | Parent Contact | Secondary Name | Secondary Contact | Class | Joined Date
+                  <strong>Row 1 (Headers):</strong> Full Name | Gender | Date of Birth | Parent/Guardian Name | Parent Contact | Secondary Name | WhatsApp Number | Class | Joined Date
                 </li>
                 <li className="flex items-start gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />

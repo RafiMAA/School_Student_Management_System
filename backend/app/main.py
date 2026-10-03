@@ -1,4 +1,5 @@
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 import time
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,6 +7,7 @@ from starlette.middleware.gzip import GZipMiddleware
 
 from app.config import get_settings
 from app.database import get_pool, close_pool
+from app.services.notification_scheduler import run_notification_scheduler
 from app.routes import (
     auth_routes,
     academic_year_routes,
@@ -25,10 +27,19 @@ from app.routes import (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: create DB pool
-    await get_pool()
-    yield
-    # Shutdown: close DB pool
-    await close_pool()
+    pool = await get_pool()
+    scheduler = None
+    if get_settings().notification_scheduler_enabled:
+        scheduler = asyncio.create_task(run_notification_scheduler(pool), name="attendance-reminders")
+    try:
+        yield
+    finally:
+        # Stop dispatches before closing their database connections.
+        if scheduler:
+            scheduler.cancel()
+            with suppress(asyncio.CancelledError):
+                await scheduler
+        await close_pool()
 
 
 app = FastAPI(

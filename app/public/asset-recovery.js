@@ -7,6 +7,7 @@
     var assetUrl = target.src || target.href || '';
     if (assetUrl.indexOf('/assets/') === -1 || sessionStorage.getItem(recoveryKey)) return;
 
+    window.dispatchEvent(new Event('ahadiya:update-start'));
     sessionStorage.setItem(recoveryKey, 'true');
     var clearCaches = 'caches' in window
       ? caches.keys().then(function (keys) { return Promise.all(keys.map(function (key) { return caches.delete(key); })); })

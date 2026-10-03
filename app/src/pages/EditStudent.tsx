@@ -304,7 +304,7 @@ export default function EditStudent() {
 
           <div>
             <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
-              Secondary Contact <span className="text-xs text-slate-400 font-normal">(Optional)</span>
+              WhatsApp Number <span className="text-xs text-slate-400 font-normal">(Optional)</span>
             </label>
             <input
               type="tel"

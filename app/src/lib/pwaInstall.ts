@@ -176,19 +176,25 @@ function waitForWorkerActivation(worker: ServiceWorker, timeoutMs = 30000) {
 export async function applyPWAUpdate() {
   if (!('serviceWorker' in navigator)) throw new Error('Updates are not supported by this browser');
 
-  const registrations = await navigator.serviceWorker.getRegistrations();
-  await Promise.all(registrations.map(registration => registration.update()));
-  const nextWorkers = registrations
-    .map(registration => registration.waiting ?? registration.installing)
-    .filter((worker): worker is ServiceWorker => Boolean(worker));
+  window.dispatchEvent(new Event('ahadiya:update-start'));
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map(registration => registration.update()));
+    const nextWorkers = registrations
+      .map(registration => registration.waiting ?? registration.installing)
+      .filter((worker): worker is ServiceWorker => Boolean(worker));
 
-  if (nextWorkers.length > 0) {
-    const controllerChange = waitForControllerChange();
-    nextWorkers.forEach(worker => worker.postMessage({ type: 'SKIP_WAITING' }));
-    await Promise.all(nextWorkers.map(worker => waitForWorkerActivation(worker)));
-    await controllerChange;
+    if (nextWorkers.length > 0) {
+      const controllerChange = waitForControllerChange();
+      nextWorkers.forEach(worker => worker.postMessage({ type: 'SKIP_WAITING' }));
+      await Promise.all(nextWorkers.map(worker => waitForWorkerActivation(worker)));
+      await controllerChange;
+    }
+
+    navigator.serviceWorker.controller?.postMessage({ type: 'CLEAR_UNUSED_CACHES' });
+    window.location.reload();
+  } catch (error) {
+    window.dispatchEvent(new Event('ahadiya:update-end'));
+    throw error;
   }
-
-  navigator.serviceWorker.controller?.postMessage({ type: 'CLEAR_UNUSED_CACHES' });
-  window.location.reload();
 }

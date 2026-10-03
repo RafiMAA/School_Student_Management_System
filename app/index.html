@@ -12,8 +12,28 @@
     <link rel="icon" href="/ahadiya-logo-black.png" type="image/png" />
     <link rel="apple-touch-icon" href="/ahadiya-pwa-icon-192.png" />
     <script src="/theme-init.js"></script>
-    <script src="/asset-recovery.js"></script>
+    <script defer src="/pwa-update.js"></script>
+    <script defer src="/asset-recovery.js"></script>
     <style>
+      #pwa-update {
+        position: fixed; inset: 0; z-index: 2147483647;
+        display: grid; place-items: center; padding: 24px;
+        background: #f8fafc; color: #0f172a; text-align: center;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+      .pwa-update-card { max-width: 360px; }
+      #pwa-update h1 { font-size: 24px; margin: 24px 0 12px; }
+      #pwa-update p { color: #64748b; line-height: 1.6; }
+      .pwa-update-ring {
+        width: 56px; height: 56px; margin: auto; border-radius: 50%;
+        border: 5px solid #d1fae5; border-top-color: #059669;
+        animation: pwa-update-spin 1s linear infinite;
+      }
+      #pwa-update button { padding: 12px 18px; border: 0; border-radius: 12px; background: #059669; color: white; font: inherit; cursor: pointer; }
+      html.dark #pwa-update { background: #06101f; color: #fff; }
+      html.dark #pwa-update p { color: #94a3b8; }
+      @keyframes pwa-update-spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) { .pwa-update-ring { animation: none; } }
       html, body, #root { min-height: 100%; margin: 0; }
       #pwa-startup {
         min-height: 100vh;
@@ -44,6 +64,8 @@
         font-size: clamp(1rem, 4vw, 1.45rem);
         font-weight: 700;
       }
+      #pwa-startup .pwa-update-ring { width: 36px; height: 36px; margin-top: 28px; border-width: 4px; }
+      #pwa-startup .startup-status { font-size: 15px; font-weight: 500; }
       html.dark #pwa-startup { background: #06101f; }
       html.dark #pwa-startup .startup-logo-light { display: none; }
       html.dark #pwa-startup .startup-logo-dark { display: block; }
@@ -68,6 +90,8 @@
           <img class="startup-logo-dark" src="/ahadiya-logo-white.png" alt="Al-Meera Ahadiya School" />
           <h1>Al-Meera Ahadiya School</h1>
           <p>Ahadiya Management System</p>
+          <div class="pwa-update-ring" aria-hidden="true"></div>
+          <p class="startup-status">Loading app…</p>
         </div>
       </div>
     </div>

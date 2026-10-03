@@ -1,9 +1,10 @@
 import asyncio
 import base64
 import json
+import logging
 import secrets
 from collections import defaultdict
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 from zoneinfo import ZoneInfo
 
@@ -18,6 +19,7 @@ from app.config import get_settings
 from app.database import get_db
 from app.models import PushSubscriptionRequest, PushUnsubscribeRequest
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 COLOMBO = ZoneInfo("Asia/Colombo")
 
@@ -122,31 +124,47 @@ async def _send(subscription: asyncpg.Record, title: str, body: str, data: dict)
             data=json.dumps({"title": title, "body": body, "data": data}),
             vapid_private_key=settings.vapid_private_key,
             vapid_claims={"sub": settings.vapid_claim_email},
+            timeout=15,
         )
         return True
     except Exception:
         return False
 
 
+class _DeliveryFailed(Exception):
+    pass
+
+
 async def _notify_user(db, user_id, attendance_date, phase, title, body, data) -> bool:
-    subscriptions = await db.fetch(
-        "SELECT id, platform, device_key, subscription FROM push_subscriptions WHERE user_id = $1 AND enabled = TRUE",
-        user_id,
-    )
-    if not subscriptions:
+    # Commit the deduplication record only after a provider accepts the push.
+    # A failed send or process shutdown rolls back the claim, allowing retries.
+    # The unique constraint also serializes concurrent backend workers.
+    try:
+        async with db.acquire() as conn:
+            async with conn.transaction():
+                subscriptions = await conn.fetch(
+                    "SELECT id, platform, device_key, subscription FROM push_subscriptions WHERE user_id = $1 AND enabled = TRUE",
+                    user_id,
+                )
+                if not subscriptions:
+                    return False
+                claimed = await conn.fetchval(
+                    """INSERT INTO notification_dispatches (attendance_date, phase, user_id)
+                       VALUES ($1, $2, $3) ON CONFLICT DO NOTHING RETURNING id""",
+                    attendance_date, phase, user_id,
+                )
+                if not claimed:
+                    return False
+                results = await asyncio.gather(
+                    *(_send(s, title, body, data) for s in subscriptions),
+                    return_exceptions=True,
+                )
+                if not any(result is True for result in results):
+                    raise _DeliveryFailed()
+        return True
+    except _DeliveryFailed:
+        logger.warning("Reminder delivery failed; will retry: phase=%s user=%s", phase, user_id)
         return False
-    claimed = await db.fetchval(
-        """INSERT INTO notification_dispatches (attendance_date, phase, user_id)
-           VALUES ($1, $2, $3) ON CONFLICT DO NOTHING RETURNING id""",
-        attendance_date, phase, user_id,
-    )
-    if not claimed:
-        return False
-    results = await asyncio.gather(*(_send(s, title, body, data) for s in subscriptions))
-    if not any(results):
-        await db.execute("DELETE FROM notification_dispatches WHERE id = $1", claimed)
-        return False
-    return True
 
 
 @router.post("/attendance-reminders/{phase}")
@@ -161,7 +179,10 @@ async def run_attendance_reminder(
     ):
         raise HTTPException(status_code=401, detail="Invalid scheduler secret")
 
-    today = datetime.now(COLOMBO).date()
+    return await dispatch_attendance_reminders(db, phase, datetime.now(COLOMBO).date())
+
+
+async def dispatch_attendance_reminders(db, phase: str, today: date):
     if today.weekday() != 6:
         return {"sent": 0, "skipped": "Not Sunday"}
 
@@ -200,7 +221,17 @@ async def run_attendance_reminder(
         body = f"Attendance has not been submitted for: {', '.join(names)}."
         messages = [(u["id"], "Classes missing attendance", body, {"classNames": names}) for u in admins]
 
-    sent = 0
-    for user_id, title, body, data in messages:
-        sent += int(await _notify_user(db, user_id, today, phase, title, body, data))
+    limit = asyncio.Semaphore(5)
+
+    async def deliver(message):
+        user_id, title, body, data = message
+        async with limit:
+            try:
+                return await _notify_user(db, user_id, today, phase, title, body, data)
+            except Exception:
+                # Do not log provider exceptions, which can include device tokens.
+                logger.error("Reminder dispatch failed: phase=%s user=%s", phase, user_id)
+                return False
+
+    sent = sum(await asyncio.gather(*(deliver(message) for message in messages)))
     return {"sent": sent, "missing_classes": len(missing)}

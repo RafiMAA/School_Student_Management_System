@@ -1,3 +1,4 @@
+import { DateField, formatLocalDate } from '../components/DateField';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import React, { useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
@@ -266,7 +267,7 @@ export function PromotionRulesScreen({ navigation }: any) {
 export function PromotionPreviewScreen() {
   const { colors } = useTheme();
   const qc = useQueryClient();
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(formatLocalDate(new Date()));
   const [busy, setBusy] = useState(false);
   const preview = useQuery({
     queryKey: ["promotionPreview"],
@@ -371,11 +372,10 @@ export function PromotionPreviewScreen() {
           <Text style={{ color: colors.muted, fontSize: 11 }}>No rule</Text>
         </Card>
       </View>
-      <Field
+      <DateField
         label="New academic year start date"
-        placeholder="YYYY-MM-DD"
         value={date}
-        onChangeText={setDate}
+        onChange={setDate}
       />
       {preview.isLoading ? (
         <LoadingView />

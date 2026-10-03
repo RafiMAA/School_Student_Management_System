@@ -23,20 +23,42 @@ Configure the backend host with:
 The backend derives and publishes the matching public key to the PWA. No Vercel
 VAPID variable is required. `VITE_VAPID_PUBLIC_KEY` remains an optional fallback.
 
-## 3. Scheduler
+## 3. Scheduler inside the Render backend
 
-In the GitHub repository settings, add Actions secrets:
+The FastAPI lifespan starts a background scheduler automatically. No separate
+cron service or new Python dependency is required. `NOTIFICATION_SCHEDULER_ENABLED`
+defaults to `true`; set it to `false` for local development or deployments that
+must not send scheduled reminders.
 
-- `NOTIFICATION_CRON_SECRET`: exactly the same value configured on the backend
+The scheduler checks every 30 seconds using `Asia/Colombo`:
 
-The production backend URL is defined in the workflow, so an `AHADIYA_API_URL`
-repository secret is no longer required.
+- Sunday 08:30: reminder to all active app users
+- Sunday 10:25: assigned teachers whose class attendance is missing
+- Sunday 10:40: admins, principals and super admins when classes are missing
 
-The workflow `.github/workflows/attendance-reminders.yml` runs Sundays at these Sri Lanka times:
+It retries failed sends and catches up after a restart for 15 minutes after each
+time. After that window, the reminder expires rather than arriving hours late.
+The backend must be running: keep UptimeRobot monitoring `/api/health` at an
+interval shorter than Render's idle timeout. Monitoring does not prevent deploys
+or outages; an outage covering the entire retry window will miss that reminder.
+Provider/device delivery can still lag behind the backend send time.
 
-- 08:30: reminder to all active app users
-- 10:25: only assigned teachers whose class attendance is missing
-- 10:40: admins, principals and super admins when one or more classes are missing
+Existing `notification_dispatches` rows prevent repeats across workers and
+restarts. Claims are committed only after at least one device's push provider
+accepts delivery. If every device fails, the claim rolls back for the next retry.
+As with any external push API, a crash after acceptance but before the database
+commit can result in a repeated notification. Successful provider acceptance is
+not a confirmation that a phone displayed the notification.
+
+Deploy these backend changes and check Render logs for `Attendance scheduler
+started` and the Sunday phase results. The existing database migration from
+section 1 is still required; there is no additional schema migration.
+
+The GitHub workflow now supports **manual dispatch only**, with a phase selector.
+It is a fallback, not the automatic clock. For manual dispatch, keep the repository
+secret `NOTIFICATION_CRON_SECRET` equal to the backend value. The internal
+scheduler does not use that secret. Do not trigger manual runs just to test the
+setup: on Sundays they send real notifications.
 
 ## 4. Native push credentials
 

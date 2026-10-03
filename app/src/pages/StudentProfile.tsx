@@ -288,7 +288,7 @@ export default function StudentProfile() {
                   <Phone className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                   <div>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {student.parent_name_2 ? `${student.parent_name_2}'s Number` : "Secondary Number"}
+                      {student.parent_name_2 ? `${student.parent_name_2}'s WhatsApp Number` : "WhatsApp Number"}
                     </p>
                     <p className="font-medium text-slate-900 dark:text-white">{student.parent_contact_2}</p>
                   </div>

@@ -14,7 +14,7 @@ HEADER_ALIASES = {
     "parent_name": {"parent/guardian name", "parent name", "guardian name"},
     "parent_contact": {"parent contact number", "parent contact", "contact", "phone"},
     "parent_name_2": {"secondary contact name (optional)", "secondary contact name", "second parent name"},
-    "parent_contact_2": {"secondary contact number (optional)", "secondary contact (optional)", "secondary contact", "second parent contact"},
+    "parent_contact_2": {"whatsapp number", "whatsapp number (optional)", "secondary contact number (optional)", "secondary contact (optional)", "secondary contact", "second parent contact"},
     "class_name": {"class", "assign to class", "class name"},
     "joined_date": {"joined date", "joined date (yyyy-mm-dd)", "date joined"},
     # Legacy template columns remain supported.
@@ -29,7 +29,7 @@ TEMPLATE_HEADERS = [
     "Parent/Guardian Name",
     "Parent Contact Number",
     "Secondary Contact Name (Optional)",
-    "Secondary Contact Number (Optional)",
+    "WhatsApp Number (Optional)",
     "Class",
     "Joined Date (YYYY-MM-DD)",
 ]
@@ -105,7 +105,7 @@ def create_student_import_template(classes: list[str]) -> io.BytesIO:
         "Enter dates as YYYY-MM-DD, for example 2015-05-10. Both Date of Birth and Joined Date are required.",
         "Choose Male or Female from the Gender dropdown and the student's current class from the Class dropdown.",
         "Contact numbers must contain 10 digits, including the leading zero, for example 0771234567.",
-        "Secondary Contact Name and Secondary Contact Number are optional; row 3 shows these left blank.",
+        "Secondary Contact Name and WhatsApp Number are optional; row 3 shows these left blank.",
         "All other columns are required. If there are no Class options, create current-year classes and download a new template.",
     ]:
         instructions.append([instruction])
@@ -293,7 +293,7 @@ def _validate_row(raw: dict, row_number: int):
     if len(parent_contact) != 10:
         row_errors.append({"row": row_number, "field": "parent_contact", "message": "Parent contact must contain 10 digits"})
     if parent_contact_2 and len(parent_contact_2) != 10:
-        row_errors.append({"row": row_number, "field": "parent_contact_2", "message": "Secondary contact must contain 10 digits"})
+        row_errors.append({"row": row_number, "field": "parent_contact_2", "message": "WhatsApp number must contain 10 digits"})
 
     date_of_birth, date_error = _parse_date(raw.get("date_of_birth"), "date_of_birth", row_number)
     if date_error:
